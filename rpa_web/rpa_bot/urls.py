@@ -36,4 +36,11 @@ urlpatterns = [
     path('api/news/stats/', views.api_news_stats, name='api_news_stats'),
     path('api/news/latest-report/', views.api_latest_report, name='api_latest_report'),
     path('api/news/scraping-status/', views.api_scraping_status, name='api_scraping_status'),
+
+    # AI Agent Dashboard
+    path('ai-agent/', views.ai_agent_dashboard, name='ai_agent_dashboard'),
+    path('api/ai-agent/status/', views.api_ai_agent_status, name='api_ai_agent_status'),
+    path('api/ai-agent/discover-stocks/', views.api_ai_agent_discover_stocks, name='api_ai_agent_discover_stocks'),
+    path('api/ai-agent/discover-crypto/', views.api_ai_agent_discover_crypto, name='api_ai_agent_discover_crypto'),
+    path('api/ai-agent/sentiment/', views.api_ai_agent_sentiment, name='api_ai_agent_sentiment'),
 ]

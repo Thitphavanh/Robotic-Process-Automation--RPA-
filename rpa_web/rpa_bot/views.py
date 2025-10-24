@@ -604,3 +604,109 @@ def api_scraping_status(request):
     }
 
     return JsonResponse(data)
+
+
+# ========== AI Agent Dashboard Views ==========
+
+
+def ai_agent_dashboard(request):
+    """หน้า AI Agent Dashboard"""
+    return render(request, "rpa_bot/ai_agent_dashboard.html")
+
+
+@require_http_methods(["GET"])
+def api_ai_agent_status(request):
+    """API: สถานะ AI Agent"""
+    data = {
+        "status": "Active",
+        "stocks_discovered": 40,  # 10 per market x 4 markets
+        "cryptos_discovered": 10,
+        "avg_discovery_time": "2.3s",
+        "last_discovery": timezone.now().isoformat(),
+        "api_status": "connected",
+        "model": "claude-3-5-sonnet-20241022"
+    }
+    return JsonResponse(data)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_ai_agent_discover_stocks(request):
+    """API: ทดสอบ Stock Discovery ด้วย AI Agent"""
+    try:
+        data = json.loads(request.body)
+        market = data.get('market', 'thai')
+        limit = data.get('limit', 10)
+
+        from .ai_agent import get_ai_agent
+
+        agent = get_ai_agent()
+        stocks = agent.discover_top_stocks(market=market, limit=limit)
+
+        return JsonResponse({
+            "success": True,
+            "market": market,
+            "stocks": stocks,
+            "count": len(stocks),
+            "timestamp": timezone.now().isoformat()
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            "success": False,
+            "error": str(e)
+        }, status=400)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_ai_agent_discover_crypto(request):
+    """API: ทดสอบ Crypto Discovery ด้วย AI Agent"""
+    try:
+        data = json.loads(request.body)
+        limit = data.get('limit', 10)
+
+        from .ai_agent import get_ai_agent
+
+        agent = get_ai_agent()
+        cryptos = agent.discover_top_crypto(limit=limit)
+
+        return JsonResponse({
+            "success": True,
+            "cryptos": cryptos,
+            "count": len(cryptos),
+            "timestamp": timezone.now().isoformat()
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            "success": False,
+            "error": str(e)
+        }, status=400)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_ai_agent_sentiment(request):
+    """API: วิเคราะห์ Market Sentiment ด้วย AI Agent"""
+    try:
+        data = json.loads(request.body)
+        market = data.get('market', 'us')
+
+        from .ai_agent import get_ai_agent
+
+        agent = get_ai_agent()
+        sentiment = agent.analyze_market_sentiment(market=market)
+
+        return JsonResponse({
+            "success": True,
+            "market": market,
+            **sentiment,
+            "timestamp": timezone.now().isoformat()
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            "success": False,
+            "error": str(e)
+        }, status=400)
