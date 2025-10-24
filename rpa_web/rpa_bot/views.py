@@ -5,6 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django.core.cache import cache
 import json
 import os
 import threading
@@ -90,7 +91,7 @@ def task_create(request):
                 created_by=request.user if request.user.is_authenticated else None,
             )
             messages.success(request, f'สร้าง Task "{task.name}" สำเร็จ!')
-            return redirect("task_detail", pk=task.pk)
+            return redirect("task_detail", slug=task.slug)
         except Exception as e:
             messages.error(request, f"เกิดข้อผิดพลาด: {str(e)}")
 
@@ -100,9 +101,9 @@ def task_create(request):
     return render(request, "rpa_bot/task_form.html", context)
 
 
-def task_detail(request, pk):
+def task_detail(request, slug):
     """รายละเอียด Task"""
-    task = get_object_or_404(RPATask, pk=pk)
+    task = get_object_or_404(RPATask, slug=slug)
     logs = task.logs.all()[:50]
 
     context = {
@@ -112,9 +113,9 @@ def task_detail(request, pk):
     return render(request, "rpa_bot/task_detail.html", context)
 
 
-def task_update(request, pk):
+def task_update(request, slug):
     """แก้ไข Task"""
-    task = get_object_or_404(RPATask, pk=pk)
+    task = get_object_or_404(RPATask, slug=slug)
 
     if request.method == "POST":
         try:
@@ -128,7 +129,7 @@ def task_update(request, pk):
             task.save()
 
             messages.success(request, f'อัพเดท Task "{task.name}" สำเร็จ!')
-            return redirect("task_detail", pk=task.pk)
+            return redirect("task_detail", slug=task.slug)
         except Exception as e:
             messages.error(request, f"เกิดข้อผิดพลาด: {str(e)}")
 
@@ -139,9 +140,9 @@ def task_update(request, pk):
     return render(request, "rpa_bot/task_form.html", context)
 
 
-def task_delete(request, pk):
+def task_delete(request, slug):
     """ลบ Task"""
-    task = get_object_or_404(RPATask, pk=pk)
+    task = get_object_or_404(RPATask, slug=slug)
 
     if request.method == "POST":
         task_name = task.name
@@ -155,14 +156,14 @@ def task_delete(request, pk):
 # ========== Task Execution ==========
 
 
-def task_run(request, pk):
+def task_run(request, slug):
     """รัน Task"""
-    task = get_object_or_404(RPATask, pk=pk)
+    task = get_object_or_404(RPATask, slug=slug)
 
     # ตรวจสอบสถานะ
     if task.status == "running":
         messages.warning(request, "Task นี้กำลังทำงานอยู่แล้ว")
-        return redirect("task_detail", pk=pk)
+        return redirect("task_detail", slug=slug)
 
     # รันใน Background Thread
     def run_in_background():
@@ -176,12 +177,12 @@ def task_run(request, pk):
     thread.start()
 
     messages.info(request, f'เริ่มรัน Task "{task.name}" แล้ว')
-    return redirect("task_detail", pk=pk)
+    return redirect("task_detail", slug=slug)
 
 
-def task_stop(request, pk):
+def task_stop(request, slug):
     """หยุด Task (ยังไม่ได้ implement การหยุดจริง)"""
-    task = get_object_or_404(RPATask, pk=pk)
+    task = get_object_or_404(RPATask, slug=slug)
 
     if task.status == "running":
         # TODO: Implement actual stopping mechanism
@@ -191,20 +192,21 @@ def task_stop(request, pk):
     else:
         messages.info(request, "Task ไม่ได้กำลังทำงาน")
 
-    return redirect("task_detail", pk=pk)
+    return redirect("task_detail", slug=slug)
 
 
 # ========== API Endpoints ==========
 
 
 @require_http_methods(["GET"])
-def api_task_status(request, pk):
+def api_task_status(request, slug):
     """API: ดูสถานะ Task"""
-    task = get_object_or_404(RPATask, pk=pk)
+    task = get_object_or_404(RPATask, slug=slug)
 
     data = {
         "id": task.id,
         "name": task.name,
+        "slug": task.slug,
         "status": task.status,
         "status_display": task.get_status_display(),
         "progress": calculate_progress(task),
@@ -221,13 +223,14 @@ def api_task_status(request, pk):
 
 
 @require_http_methods(["GET"])
-def api_task_logs(request, pk):
+def api_task_logs(request, slug):
     """API: ดู Logs ของ Task"""
-    task = get_object_or_404(RPATask, pk=pk)
+    task = get_object_or_404(RPATask, slug=slug)
     logs = task.logs.all()[:50]
 
     data = {
         "task_id": task.id,
+        "task_slug": task.slug,
         "logs": [
             {
                 "level": log.level,
@@ -268,9 +271,9 @@ def api_task_create(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-def api_task_run(request, pk):
+def api_task_run(request, slug):
     """API: รัน Task"""
-    task = get_object_or_404(RPATask, pk=pk)
+    task = get_object_or_404(RPATask, slug=slug)
 
     if task.status == "running":
         return JsonResponse(
@@ -288,7 +291,7 @@ def api_task_run(request, pk):
     thread.daemon = True
     thread.start()
 
-    return JsonResponse({"success": True, "message": "เริ่มรัน Task แล้ว"})
+    return JsonResponse({"success": True, "message": "เริ่มรัน Task แล้ว", "slug": task.slug})
 
 
 # ========== Helper Functions ==========
@@ -321,11 +324,36 @@ def news_dashboard(request):
     today = date.today()
     today_articles = NewsArticle.objects.filter(published_at__date=today)
 
-    # สถิติตามหมวด
-    categories_stats = []
-    for category_code, category_name in NewsSource.CATEGORY_CHOICES:
+    # สถิติตามหมวด - จัดกลุ่มตามประเภท
+    stock_categories = [
+        ('stock_thai', 'หุ้นไทย'),
+        ('stock_us', 'หุ้นอเมริกา'),
+        ('stock_europe', 'หุ้นยุโรป'),
+        ('stock_china', 'หุ้นจีน'),
+    ]
+
+    other_categories = [
+        ('crypto', 'Bitcoin/Crypto'),
+        ('gold', 'ราคาทองคำ'),
+        ('tech_ai', 'Technology AI'),
+        ('tech_hardware', 'Hardware'),
+        ('tech_software', 'Software'),
+        ('football', 'Football'),
+        ('ev_car', 'EV Car'),
+        ('rocket_space', 'Rocket & Space'),
+    ]
+
+    stock_stats = []
+    for category_code, category_name in stock_categories:
         count = today_articles.filter(source__category=category_code).count()
-        categories_stats.append(
+        stock_stats.append(
+            {"code": category_code, "name": category_name, "count": count}
+        )
+
+    other_stats = []
+    for category_code, category_name in other_categories:
+        count = today_articles.filter(source__category=category_code).count()
+        other_stats.append(
             {"code": category_code, "name": category_name, "count": count}
         )
 
@@ -335,7 +363,8 @@ def news_dashboard(request):
     context = {
         "latest_report": latest_report,
         "today_articles_count": today_articles.count(),
-        "categories_stats": categories_stats,
+        "stock_stats": stock_stats,
+        "other_stats": other_stats,
         "recent_articles": recent_articles,
     }
 
@@ -370,6 +399,56 @@ def news_articles(request):
     return render(request, "rpa_bot/news_articles.html", context)
 
 
+def news_article_detail(request, slug):
+    """หน้ารายละเอียดข่าว"""
+    article = get_object_or_404(NewsArticle, slug=slug)
+
+    # สร้าง AI Summary ถ้ายังไม่มี
+    if not article.ai_summary:
+        from .ai_summarizer import AISummarizerService
+        summarizer = AISummarizerService()
+        summarizer.summarize_article(article)
+        article.refresh_from_db()
+
+    # ข่าวที่เกี่ยวข้อง (จากหมวดเดียวกัน)
+    related_articles = NewsArticle.objects.filter(
+        source__category=article.source.category
+    ).exclude(slug=slug).order_by('-published_at')[:5]
+
+    context = {
+        "article": article,
+        "related_articles": related_articles,
+    }
+
+    return render(request, "rpa_bot/news_article_detail.html", context)
+
+
+def generate_article_analysis(request, slug):
+    """สร้างการวิเคราะห์แบบละเอียดด้วย Gemini AI"""
+    if request.method != "POST":
+        return redirect("news_article_detail", slug=slug)
+
+    article = get_object_or_404(NewsArticle, slug=slug)
+
+    try:
+        from .ai_summarizer import AISummarizerService
+
+        # สร้างการวิเคราะห์
+        summarizer = AISummarizerService()
+        analysis_report = summarizer.generate_detailed_analysis(article)
+
+        # บันทึกลงฐานข้อมูล
+        article.detailed_analysis = analysis_report
+        article.save()
+
+        messages.success(request, "สร้างการวิเคราะห์เสร็จสมบูรณ์!")
+
+    except Exception as e:
+        messages.error(request, f"เกิดข้อผิดพลาด: {str(e)}")
+
+    return redirect("news_article_detail", slug=slug)
+
+
 def daily_reports(request):
     """หน้ารายการรายงานประจำวัน"""
     reports = DailyReport.objects.filter(is_completed=True)
@@ -386,9 +465,9 @@ def daily_reports(request):
     return render(request, "rpa_bot/daily_reports.html", context)
 
 
-def daily_report_detail(request, pk):
+def daily_report_detail(request, slug):
     """หน้ารายละเอียดรายงานประจำวัน"""
-    report = get_object_or_404(DailyReport, pk=pk)
+    report = get_object_or_404(DailyReport, slug=slug)
 
     context = {
         "report": report,
@@ -398,15 +477,40 @@ def daily_report_detail(request, pk):
 
 
 def trigger_news_scrape(request):
-    """Trigger ดึงข้อมูลข่าวด้วยตัวเอง"""
+    """Trigger ดึงข้อมูลข่าวด้วยตัวเอง - แบบ Background"""
     if request.method == "POST":
-        try:
-            # เรียก Celery task
-            scrape_all_news.delay()
-            messages.success(request, "เริ่มดึงข้อมูลข่าวแล้ว! กรุณารอสักครู่...")
-        except Exception as e:
-            messages.error(request, f"เกิดข้อผิดพลาด: {str(e)}")
+        # ตรวจสอบว่ากำลัง scrape อยู่หรือไม่
+        if cache.get('news_scraping_status') == 'running':
+            messages.warning(request, "กำลังดึงข้อมูลข่าวอยู่แล้ว กรุณารอสักครู่...")
+            return redirect("news_dashboard")
 
+        # เริ่ม scraping ใน background
+        def run_scraping_in_background():
+            try:
+                from .news_scraper import scrape_all_news_sources
+
+                # ตั้งสถานะเป็น running
+                cache.set('news_scraping_status', 'running', 600)  # 10 minutes timeout
+                cache.set('news_scraping_progress', 0, 600)
+
+                # ดึงข้อมูล
+                result = scrape_all_news_sources()
+
+                # บันทึกผลลัพธ์
+                cache.set('news_scraping_status', 'completed', 600)
+                cache.set('news_scraping_result', result, 600)
+                cache.set('news_scraping_progress', 100, 600)
+
+            except Exception as e:
+                cache.set('news_scraping_status', 'failed', 600)
+                cache.set('news_scraping_error', str(e), 600)
+
+        # รันใน background thread
+        thread = threading.Thread(target=run_scraping_in_background)
+        thread.daemon = True
+        thread.start()
+
+        messages.info(request, "เริ่มดึงข้อมูลข่าวแล้ว! กำลังประมวลผล...")
         return redirect("news_dashboard")
 
     return render(request, "rpa_bot/trigger_scrape.html")
@@ -416,9 +520,17 @@ def trigger_generate_report(request):
     """Trigger สร้างรายงานด้วยตัวเอง"""
     if request.method == "POST":
         try:
-            # เรียก Celery task
-            generate_daily_report.delay()
-            messages.success(request, "เริ่มสร้างรายงานแล้ว! กรุณารอสักครู่...")
+            # รันแบบ synchronous ทันที (ไม่ใช้ Celery)
+            from .ai_summarizer import AISummarizerService
+            from datetime import date
+
+            summarizer = AISummarizerService()
+            report = summarizer.generate_daily_report(date.today())
+
+            if report:
+                messages.success(request, "สร้างรายงานเรียบร้อยแล้ว!")
+            else:
+                messages.warning(request, "ไม่มีข่าวใหม่สำหรับสร้างรายงาน")
         except Exception as e:
             messages.error(request, f"เกิดข้อผิดพลาด: {str(e)}")
 
@@ -470,6 +582,25 @@ def api_latest_report(request):
             "full_report": report.full_report,
             "created_at": report.created_at.isoformat(),
         },
+    }
+
+    return JsonResponse(data)
+
+
+@require_http_methods(["GET"])
+def api_scraping_status(request):
+    """API: ตรวจสอบสถานะการ scrape ข่าว"""
+    status = cache.get('news_scraping_status', 'idle')
+    progress = cache.get('news_scraping_progress', 0)
+    result = cache.get('news_scraping_result', {})
+    error = cache.get('news_scraping_error', None)
+
+    data = {
+        "status": status,  # 'idle', 'running', 'completed', 'failed'
+        "progress": progress,
+        "result": result if status == 'completed' else None,
+        "error": error if status == 'failed' else None,
+        "timestamp": timezone.now().isoformat()
     }
 
     return JsonResponse(data)

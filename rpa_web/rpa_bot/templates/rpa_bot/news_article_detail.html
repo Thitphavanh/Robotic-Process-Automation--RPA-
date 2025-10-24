@@ -1,0 +1,202 @@
+{% extends 'rpa_bot/base.html' %}
+{% load static %}
+
+{% block title %}{{ article.title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Back Button -->
+    <div class="mb-4">
+        <a href="{% url 'news_articles' %}" class="text-purple-600 hover:text-purple-800 font-semibold">
+            <i class="fas fa-arrow-left mr-2"></i>กลับไปรายการข่าว
+        </a>
+    </div>
+
+    <!-- Article Header -->
+    <div class="bg-white rounded-lg shadow-lg overflow-hidden mb-8">
+        <!-- Image -->
+        {% if article.image_url %}
+        <div class="w-full h-64 bg-gray-200 flex items-center justify-center overflow-hidden">
+            <img src="{{ article.image_url }}"
+                 alt="{{ article.title }}"
+                 class="w-full h-full object-contain"
+                 onerror="this.onerror=null; this.src='https://via.placeholder.com/800x400?text=No+Image';">
+        </div>
+        {% endif %}
+
+        <div class="p-6">
+            <!-- Category Badge -->
+            <div class="mb-3">
+                <span class="inline-block bg-purple-100 text-purple-800 text-xs font-semibold px-3 py-1 rounded-full">
+                    {{ article.source.get_category_display }}
+                </span>
+            </div>
+
+            <!-- Title -->
+            <h1 class="text-3xl font-bold text-gray-800 mb-4">
+                {{ article.title }}
+            </h1>
+
+            <!-- Meta Information -->
+            <div class="flex flex-wrap items-center text-sm text-gray-500 space-x-4 mb-4">
+                <span><i class="fas fa-calendar mr-1"></i>{{ article.published_at|date:"d/m/Y H:i" }}</span>
+                <span><i class="fas fa-clock mr-1"></i>เมื่อ {{ article.published_at|timesince }} ที่แล้ว</span>
+                <span><i class="fas fa-globe mr-1"></i>{{ article.source.name }}</span>
+            </div>
+
+            <!-- Price & Change Info -->
+            {% if article.price %}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-blue-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600 mb-1">ราคาปัจจุบัน</p>
+                    <p class="text-2xl font-bold text-blue-600">
+                        {% if 'crypto' in article.source.category or 'stock' in article.source.category %}
+                            ${{ article.price|floatformat:2 }}
+                        {% else %}
+                            {{ article.price|floatformat:2 }}
+                        {% endif %}
+                    </p>
+                </div>
+
+                {% if article.change %}
+                <div class="bg-{% if article.change >= 0 %}green{% else %}red{% endif %}-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600 mb-1">การเปลี่ยนแปลง</p>
+                    <p class="text-2xl font-bold text-{% if article.change >= 0 %}green{% else %}red{% endif %}-600">
+                        {% if article.change >= 0 %}+{% endif %}{{ article.change|floatformat:2 }}
+                    </p>
+                </div>
+                {% endif %}
+
+                {% if article.change_percent %}
+                <div class="bg-{% if article.change_percent >= 0 %}green{% else %}red{% endif %}-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600 mb-1">% เปลี่ยนแปลง</p>
+                    <p class="text-2xl font-bold text-{% if article.change_percent >= 0 %}green{% else %}red{% endif %}-600">
+                        {% if article.change_percent >= 0 %}+{% endif %}{{ article.change_percent|floatformat:2 }}%
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Sentiment -->
+            {% if article.sentiment %}
+            <div class="mb-6">
+                <div class="flex items-center">
+                    <span class="text-sm font-semibold text-gray-700 mr-2">Sentiment:</span>
+                    <span class="inline-block px-3 py-1 rounded-full text-sm font-semibold
+                        {% if article.sentiment == 'positive' %}
+                            bg-green-100 text-green-800
+                        {% elif article.sentiment == 'negative' %}
+                            bg-red-100 text-red-800
+                        {% else %}
+                            bg-gray-100 text-gray-800
+                        {% endif %}">
+                        {% if article.sentiment == 'positive' %}
+                            <i class="fas fa-smile mr-1"></i>Positive
+                        {% elif article.sentiment == 'negative' %}
+                            <i class="fas fa-frown mr-1"></i>Negative
+                        {% else %}
+                            <i class="fas fa-meh mr-1"></i>Neutral
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- AI Summary -->
+            {% if article.ai_summary %}
+            <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 mb-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+                    <i class="fas fa-robot text-purple-600 mr-2"></i>สรุปโดย AI
+                </h3>
+                <p class="text-gray-700 leading-relaxed whitespace-pre-line">{{ article.ai_summary }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Detailed Analysis -->
+            {% if article.detailed_analysis %}
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 mb-6 border-2 border-indigo-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-brain text-indigo-600 mr-2"></i>การวิเคราะห์แบบละเอียด (Gemini AI)
+                    </h3>
+                    <span class="text-xs bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full font-semibold">
+                        <i class="fas fa-sparkles mr-1"></i>AI Powered
+                    </span>
+                </div>
+                <div class="prose max-w-none">
+                    <pre class="text-gray-700 leading-relaxed whitespace-pre-wrap font-sans text-sm bg-white rounded-lg p-4 border border-indigo-100 overflow-x-auto">{{ article.detailed_analysis }}</pre>
+                </div>
+            </div>
+            {% else %}
+            <!-- Generate Analysis Button -->
+            <div class="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg p-6 mb-6 border-2 border-orange-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-2 flex items-center">
+                            <i class="fas fa-lightbulb text-orange-600 mr-2"></i>ต้องการการวิเคราะห์แบบละเอียด?
+                        </h3>
+                        <p class="text-sm text-gray-600">สร้างรายงานวิเคราะห์เชิงลึกด้วย Gemini AI รองรับทุกหมวดหมู่: หุ้น, Crypto, เทคโนโลยี, และอื่นๆ</p>
+                    </div>
+                    <form method="POST" action="{% url 'generate_article_analysis' article.slug %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 flex items-center">
+                            <i class="fas fa-magic mr-2"></i>สร้างการวิเคราะห์
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Content -->
+            <div class="prose max-w-none mb-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-3">เนื้อหา</h3>
+                <p class="text-gray-700 leading-relaxed whitespace-pre-line">{{ article.content }}</p>
+            </div>
+
+            <!-- External Link -->
+            <div class="mt-6 pt-6 border-t border-gray-200">
+                <a href="{{ article.url }}"
+                   target="_blank"
+                   class="inline-flex items-center bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition">
+                    <i class="fas fa-external-link-alt mr-2"></i>อ่านข่าวฉบับเต็ม
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Related Articles -->
+    {% if related_articles %}
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">
+            <i class="fas fa-newspaper mr-2 text-purple-600"></i>ข่าวที่เกี่ยวข้อง
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for related in related_articles %}
+            <a href="{% url 'news_article_detail' related.slug %}"
+               class="block border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                {% if related.image_url %}
+                <div class="w-full h-32 bg-gray-200 rounded-lg mb-3 overflow-hidden">
+                    <img src="{{ related.image_url }}"
+                         alt="{{ related.title }}"
+                         class="w-full h-full object-cover"
+                         onerror="this.onerror=null; this.style.display='none';">
+                </div>
+                {% endif %}
+                <h3 class="font-semibold text-gray-800 mb-2 line-clamp-2">{{ related.title }}</h3>
+                <div class="flex items-center text-xs text-gray-500">
+                    <span><i class="fas fa-clock mr-1"></i>{{ related.published_at|date:"d/m/Y" }}</span>
+                    {% if related.price %}
+                    <span class="ml-3 text-purple-600 font-semibold">
+                        ${{ related.price|floatformat:2 }}
+                    </span>
+                    {% endif %}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
