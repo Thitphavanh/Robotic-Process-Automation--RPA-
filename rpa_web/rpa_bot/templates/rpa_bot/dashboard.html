@@ -131,11 +131,11 @@
                             {{ task.created_at|date:"d/m/Y H:i" }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <a href="{% url 'task_detail' task.pk %}" class="text-purple-600 hover:text-purple-900 mr-3">
+                            <a href="{% url 'task_detail' task.slug %}" class="text-purple-600 hover:text-purple-900 mr-3">
                                 <i class="fas fa-eye"></i> ดู
                             </a>
                             {% if task.status == 'pending' or task.status == 'failed' %}
-                            <a href="{% url 'task_run' task.pk %}" class="text-green-600 hover:text-green-900">
+                            <a href="{% url 'task_run' task.slug %}" class="text-green-600 hover:text-green-900">
                                 <i class="fas fa-play"></i> รัน
                             </a>
                             {% endif %}

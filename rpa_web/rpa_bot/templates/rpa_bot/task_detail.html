@@ -34,22 +34,22 @@
             <!-- Action Buttons -->
             <div class="flex flex-col space-y-2">
                 {% if task.status == 'pending' or task.status == 'failed' %}
-                <a href="{% url 'task_run' task.pk %}" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition">
+                <a href="{% url 'task_run' task.slug %}" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition">
                     <i class="fas fa-play mr-2"></i>รัน Task
                 </a>
                 {% endif %}
 
                 {% if task.status == 'running' %}
-                <a href="{% url 'task_stop' task.pk %}" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition">
+                <a href="{% url 'task_stop' task.slug %}" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition">
                     <i class="fas fa-stop mr-2"></i>หยุด Task
                 </a>
                 {% endif %}
 
-                <a href="{% url 'task_update' task.pk %}" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition">
+                <a href="{% url 'task_update' task.slug %}" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition">
                     <i class="fas fa-edit mr-2"></i>แก้ไข
                 </a>
 
-                <form method="POST" action="{% url 'task_delete' task.pk %}" onsubmit="return confirm('คุณแน่ใจที่จะลบ Task นี้?')">
+                <form method="POST" action="{% url 'task_delete' task.slug %}" onsubmit="return confirm('คุณแน่ใจที่จะลบ Task นี้?')">
                     {% csrf_token %}
                     <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition">
                         <i class="fas fa-trash mr-2"></i>ลบ
