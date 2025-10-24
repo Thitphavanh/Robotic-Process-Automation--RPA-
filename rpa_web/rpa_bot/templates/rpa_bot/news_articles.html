@@ -39,25 +39,45 @@
     <div class="bg-white rounded-lg shadow-md p-6">
         <div class="space-y-4">
             {% for article in page_obj %}
-            <div class="border-b border-gray-200 pb-4 last:border-b-0">
-                <div class="flex items-start">
-                    <div class="flex-1">
-                        <h3 class="font-semibold text-gray-800 mb-1">
-                            <a href="{{ article.url }}" target="_blank" class="hover:text-purple-600">
+            <div class="border-b border-gray-200 pb-4 last:border-b-0 hover:bg-gray-50 transition rounded-lg p-3">
+                <a href="{% url 'news_article_detail' article.slug %}" class="block">
+                    <div class="flex items-start space-x-4">
+                        <!-- Image Thumbnail -->
+                        {% if article.image_url %}
+                        <div class="w-24 h-24 flex-shrink-0 bg-gray-200 rounded-lg overflow-hidden">
+                            <img src="{{ article.image_url }}"
+                                 alt="{{ article.title }}"
+                                 class="w-full h-full object-cover"
+                                 onerror="this.onerror=null; this.style.display='none';">
+                        </div>
+                        {% endif %}
+
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-semibold text-gray-800 mb-2 hover:text-purple-600 line-clamp-2">
                                 {{ article.title }}
-                            </a>
-                        </h3>
-                        <div class="flex items-center text-sm text-gray-500 space-x-4">
-                            <span><i class="fas fa-tag mr-1"></i>{{ article.source.get_category_display }}</span>
-                            <span><i class="fas fa-clock mr-1"></i>{{ article.published_at|date:"d/m/Y H:i" }}</span>
-                            {% if article.price %}
-                            <span class="text-purple-600 font-semibold">
-                                <i class="fas fa-dollar-sign mr-1"></i>{{ article.price|floatformat:2 }}
-                            </span>
+                            </h3>
+                            <div class="flex flex-wrap items-center text-sm text-gray-500 space-x-4 mb-2">
+                                <span><i class="fas fa-tag mr-1"></i>{{ article.source.get_category_display }}</span>
+                                <span><i class="fas fa-clock mr-1"></i>{{ article.published_at|date:"d/m/Y H:i" }}</span>
+                                {% if article.price %}
+                                <span class="text-purple-600 font-semibold">
+                                    <i class="fas fa-dollar-sign mr-1"></i>${{ article.price|floatformat:2 }}
+                                </span>
+                                {% endif %}
+                                {% if article.change_percent %}
+                                <span class="{% if article.change_percent >= 0 %}text-green-600{% else %}text-red-600{% endif %} font-semibold">
+                                    {% if article.change_percent >= 0 %}+{% endif %}{{ article.change_percent|floatformat:2 }}%
+                                </span>
+                                {% endif %}
+                            </div>
+                            {% if article.ai_summary %}
+                            <p class="text-xs text-gray-600 line-clamp-2">
+                                <i class="fas fa-robot text-purple-500 mr-1"></i>{{ article.ai_summary|truncatewords:20 }}
+                            </p>
                             {% endif %}
                         </div>
                     </div>
-                </div>
+                </a>
             </div>
             {% empty %}
             <div class="text-center py-8 text-gray-500">
