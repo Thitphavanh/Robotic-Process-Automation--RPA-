@@ -318,19 +318,41 @@ function checkScrapingStatus() {
 
 // เช็คสถานะทันทีเมื่อโหลดหน้า (ในกรณีที่กำลัง scrape อยู่)
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('News Dashboard loaded, starting scraping monitor...');
+
     checkScrapingStatus();
 
     // เริ่ม polling ทุก 2 วินาที
     scrapingCheckInterval = setInterval(checkScrapingStatus, 2000);
 
     // จัดการ form submit
-    document.getElementById('scrapeForm').addEventListener('submit', function(e) {
-        // หลังจาก submit แล้ว เริ่มตรวจสอบสถานะทันที
-        setTimeout(() => {
-            isScrapingStarted = true;
-            checkScrapingStatus();
-        }, 500);
-    });
+    const scrapeForm = document.getElementById('scrapeForm');
+    if (scrapeForm) {
+        scrapeForm.addEventListener('submit', function(e) {
+            console.log('Scrape form submitted!');
+
+            // แสดง loading ทันที
+            const icon = document.getElementById('scrapeIcon');
+            const buttonText = document.getElementById('scrapeButtonText');
+            const button = document.getElementById('scrapeButton');
+
+            if (icon && buttonText && button) {
+                icon.classList.add('fa-spin');
+                buttonText.textContent = 'กำลังเริ่มดึงข้อมูล...';
+                button.disabled = true;
+                button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                button.classList.add('bg-gray-400', 'cursor-not-allowed');
+            }
+
+            // หลังจาก submit แล้ว เริ่มตรวจสอบสถานะทันที
+            setTimeout(() => {
+                isScrapingStarted = true;
+                checkScrapingStatus();
+            }, 500);
+        });
+    } else {
+        console.error('scrapeForm not found!');
+    }
 });
 
 // หยุด polling เมื่อออกจากหน้า
