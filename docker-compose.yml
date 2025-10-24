@@ -25,7 +25,8 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings.dev
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - GEMINI_API_KEY=AIzaSyA3-IYX6WJPxJtel6CzNCw8Y0G7WmyW72k
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     depends_on:
       - redis
     networks:
@@ -40,7 +41,8 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings.dev
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - GEMINI_API_KEY=AIzaSyA3-IYX6WJPxJtel6CzNCw8Y0G7WmyW72k
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     depends_on:
       - redis
       - web
@@ -56,7 +58,8 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings.dev
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - GEMINI_API_KEY=AIzaSyA3-IYX6WJPxJtel6CzNCw8Y0G7WmyW72k
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     depends_on:
       - redis
       - web

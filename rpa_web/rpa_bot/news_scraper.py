@@ -1,11 +1,13 @@
 """
 News Scraper Service - ดึงข้อมูลข่าวจากหลายแหล่ง (10 รายการล่าสุดต่อหมวด)
+Uses AI Agent for Dynamic Market Discovery
 """
 import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from django.utils import timezone
 from .models import NewsSource, NewsArticle
+from .ai_agent import get_ai_agent
 
 try:
     import yfinance as yf
@@ -22,6 +24,8 @@ class NewsScraperService:
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
         }
+        self.ai_agent = get_ai_agent()  # Initialize AI Agent
+        print("🤖 AI Agent initialized for dynamic market discovery")
 
     def scrape_all_categories(self):
         """ดึงข้อมูลข่าวทุกหมวดหมู่ - 10 รายการล่าสุดต่อหมวด"""
@@ -58,28 +62,24 @@ class NewsScraperService:
         return results
 
     def scrape_thai_stocks(self):
-        """ดึงข้อมูลหุ้นไทย - 10 บริษัทล่าสุด"""
+        """ดึงข้อมูลหุ้นไทย - 10 บริษัทล่าสุด (Dynamic Discovery with AI Agent)"""
         articles = []
-
-        # TOP 10 หุ้นไทยที่น่าสนใจ
-        thai_stocks = [
-            ('PTT.BK', 'ปตท.'),
-            ('CPALL.BK', 'ซีพีออลล์'),
-            ('AOT.BK', 'ท่าอากาศยาน'),
-            ('KBANK.BK', 'ธนาคารกสิกรไทย'),
-            ('SCB.BK', 'ธนาคารไทยพาณิชย์'),
-            ('BBL.BK', 'ธนาคารกรุงเทพ'),
-            ('ADVANC.BK', 'แอดวานซ์ อินโฟร์ เซอร์วิส'),
-            ('TRUE.BK', 'ทรู คอร์ปอเรชั่น'),
-            ('GULF.BK', 'กัลฟ์ เอ็นเนอร์จี'),
-            ('PTTEP.BK', 'ปตท.สผ.')
-        ]
 
         if not YFINANCE_AVAILABLE:
             print("yfinance not available, skipping Thai stocks")
             return articles
 
-        for symbol, name in thai_stocks[:10]:
+        # 🤖 ใช้ AI Agent ค้นหาหุ้นไทย Top 10 แบบ Dynamic
+        print("🤖 AI Agent discovering top Thai stocks...")
+        thai_stocks = self.ai_agent.discover_top_stocks(market='thai', limit=10)
+
+        if not thai_stocks:
+            print("⚠ AI Agent discovery failed, no stocks found")
+            return articles
+
+        print(f"✓ AI Agent discovered {len(thai_stocks)} Thai stocks")
+
+        for symbol, name in thai_stocks:
             try:
                 # ใช้ yfinance ดึงข้อมูล
                 ticker = yf.Ticker(symbol)
@@ -120,28 +120,24 @@ class NewsScraperService:
         return articles
 
     def scrape_us_stocks(self):
-        """ดึงข้อมูลหุ้นอเมริกา - 10 บริษัทล่าสุด"""
+        """ดึงข้อมูลหุ้นอเมริกา - 10 บริษัทล่าสุด (Dynamic Discovery with AI Agent)"""
         articles = []
-
-        # TOP 10 หุ้นอเมริกา
-        us_stocks = [
-            ('AAPL', 'Apple'),
-            ('MSFT', 'Microsoft'),
-            ('GOOGL', 'Alphabet (Google)'),
-            ('AMZN', 'Amazon'),
-            ('NVDA', 'NVIDIA'),
-            ('TSLA', 'Tesla'),
-            ('META', 'Meta (Facebook)'),
-            ('BRK-B', 'Berkshire Hathaway'),
-            ('JPM', 'JPMorgan Chase'),
-            ('V', 'Visa')
-        ]
 
         if not YFINANCE_AVAILABLE:
             print("yfinance not available, skipping US stocks")
             return articles
 
-        for symbol, name in us_stocks[:10]:
+        # 🤖 ใช้ AI Agent ค้นหาหุ้นอเมริกา Top 10 แบบ Dynamic
+        print("🤖 AI Agent discovering top US stocks...")
+        us_stocks = self.ai_agent.discover_top_stocks(market='us', limit=10)
+
+        if not us_stocks:
+            print("⚠ AI Agent discovery failed, no stocks found")
+            return articles
+
+        print(f"✓ AI Agent discovered {len(us_stocks)} US stocks")
+
+        for symbol, name in us_stocks:
             try:
                 # ใช้ yfinance ดึงข้อมูล
                 ticker = yf.Ticker(symbol)
@@ -182,28 +178,24 @@ class NewsScraperService:
         return articles
 
     def scrape_europe_stocks(self):
-        """ดึงข้อมูลหุ้นยุโรป - 10 บริษัทล่าสุด"""
+        """ดึงข้อมูลหุ้นยุโรป - 10 บริษัทล่าสุด (Dynamic Discovery with AI Agent)"""
         articles = []
-
-        # TOP 10 หุ้นยุโรป
-        europe_stocks = [
-            ('MC.PA', 'LVMH (ฝรั่งเศส)'),
-            ('ASML.AS', 'ASML (เนเธอร์แลนด์)'),
-            ('NVO', 'Novo Nordisk (เดนมาร์ก)'),
-            ('SAP', 'SAP (เยอรมนี)'),
-            ('OR.PA', "L'Oréal (ฝรั่งเศส)"),
-            ('SAN.PA', 'Sanofi (ฝรั่งเศส)'),
-            ('SIE.DE', 'Siemens (เยอรมนี)'),
-            ('NESN.SW', 'Nestlé (สวิตเซอร์แลนด์)'),
-            ('NOVN.SW', 'Novartis (สวิตเซอร์แลนด์)'),
-            ('SHEL.L', 'Shell (อังกฤษ)')
-        ]
 
         if not YFINANCE_AVAILABLE:
             print("yfinance not available, skipping Europe stocks")
             return articles
 
-        for symbol, name in europe_stocks[:10]:
+        # 🤖 ใช้ AI Agent ค้นหาหุ้นยุโรป Top 10 แบบ Dynamic
+        print("🤖 AI Agent discovering top Europe stocks...")
+        europe_stocks = self.ai_agent.discover_top_stocks(market='europe', limit=10)
+
+        if not europe_stocks:
+            print("⚠ AI Agent discovery failed, no stocks found")
+            return articles
+
+        print(f"✓ AI Agent discovered {len(europe_stocks)} Europe stocks")
+
+        for symbol, name in europe_stocks:
             try:
                 # ใช้ yfinance ดึงข้อมูล
                 ticker = yf.Ticker(symbol)
@@ -244,28 +236,24 @@ class NewsScraperService:
         return articles
 
     def scrape_china_stocks(self):
-        """ดึงข้อมูลหุ้นจีน - 10 บริษัทล่าสุด"""
+        """ดึงข้อมูลหุ้นจีน - 10 บริษัทล่าสุด (Dynamic Discovery with AI Agent)"""
         articles = []
-
-        # TOP 10 หุ้นจีน
-        china_stocks = [
-            ('BABA', 'Alibaba'),
-            ('TCEHY', 'Tencent'),
-            ('JD', 'JD.com'),
-            ('BIDU', 'Baidu'),
-            ('NIO', 'NIO'),
-            ('XPEV', 'XPeng'),
-            ('LI', 'Li Auto'),
-            ('PDD', 'Pinduoduo'),
-            ('NTES', 'NetEase'),
-            ('TME', 'Tencent Music')
-        ]
 
         if not YFINANCE_AVAILABLE:
             print("yfinance not available, skipping China stocks")
             return articles
 
-        for symbol, name in china_stocks[:10]:
+        # 🤖 ใช้ AI Agent ค้นหาหุ้นจีน Top 10 แบบ Dynamic
+        print("🤖 AI Agent discovering top China stocks...")
+        china_stocks = self.ai_agent.discover_top_stocks(market='china', limit=10)
+
+        if not china_stocks:
+            print("⚠ AI Agent discovery failed, no stocks found")
+            return articles
+
+        print(f"✓ AI Agent discovered {len(china_stocks)} China stocks")
+
+        for symbol, name in china_stocks:
             try:
                 # ใช้ yfinance ดึงข้อมูล
                 ticker = yf.Ticker(symbol)
@@ -306,14 +294,27 @@ class NewsScraperService:
         return articles
 
     def scrape_crypto(self):
-        """ดึงข้อมูล Cryptocurrency - 10 สกุลล่าสุด"""
+        """ดึงข้อมูล Cryptocurrency - 10 สกุลล่าสุด (Dynamic Discovery with AI Agent)"""
         articles = []
 
+        # 🤖 ใช้ AI Agent ค้นหา Crypto Top 10 แบบ Dynamic
+        print("🤖 AI Agent discovering top cryptocurrencies...")
+        crypto_list = self.ai_agent.discover_top_crypto(limit=10)
+
+        if not crypto_list:
+            print("⚠ AI Agent crypto discovery failed, using fallback")
+            # Fallback to direct API call
+            return self._scrape_crypto_fallback()
+
+        print(f"✓ AI Agent discovered {len(crypto_list)} cryptocurrencies")
+
         try:
-            # ใช้ CoinGecko API (ไม่ต้อง API Key)
+            # ใช้ CoinGecko API เพื่อดึงข้อมูลราคาของ crypto ที่ AI Agent ค้นหามา
+            crypto_ids = ','.join([crypto['id'] for crypto in crypto_list])
             url = "https://api.coingecko.com/api/v3/coins/markets"
             params = {
                 'vs_currency': 'usd',
+                'ids': crypto_ids,
                 'order': 'market_cap_desc',
                 'per_page': 10,
                 'page': 1,
@@ -326,7 +327,7 @@ class NewsScraperService:
             if response.status_code == 200:
                 data = response.json()
 
-                for coin in data[:10]:
+                for coin in data:
                     coin_name = coin.get('name', '')
                     symbol = coin.get('symbol', '').upper()
                     usd_price = coin.get('current_price', 0)
@@ -351,6 +352,55 @@ class NewsScraperService:
 
         except Exception as e:
             print(f"Error scraping crypto: {e}")
+            return self._scrape_crypto_fallback()
+
+        return articles
+
+    def _scrape_crypto_fallback(self):
+        """Fallback method for crypto scraping without AI Agent"""
+        articles = []
+
+        try:
+            url = "https://api.coingecko.com/api/v3/coins/markets"
+            params = {
+                'vs_currency': 'usd',
+                'order': 'market_cap_desc',
+                'per_page': 10,
+                'page': 1,
+                'sparkline': False,
+                'price_change_percentage': '24h'
+            }
+
+            response = requests.get(url, params=params, timeout=10)
+
+            if response.status_code == 200:
+                data = response.json()
+
+                for coin in data[:10]:
+                    coin_name = coin.get('name', '')
+                    symbol = coin.get('symbol', '').upper()
+                    usd_price = coin.get('current_price', 0)
+                    change_24h = coin.get('price_change_24h', 0)
+                    change_percent = coin.get('price_change_percentage_24h', 0)
+                    market_cap = coin.get('market_cap', 0)
+                    image_url = coin.get('image', '')
+
+                    article_data = {
+                        'title': f'{coin_name} ({symbol}) ${usd_price:,.2f}',
+                        'content': f'{coin_name} ({symbol}) ราคาปัจจุบัน ${usd_price:,.2f} เปลี่ยนแปลง 24h: {change_24h:+.2f} ({change_percent:+.2f}%) Market Cap: ${market_cap:,.0f}',
+                        'url': f'https://www.coingecko.com/en/coins/{coin.get("id", "")}',
+                        'price': usd_price,
+                        'change': change_24h,
+                        'change_percent': change_percent,
+                        'image_url': image_url,
+                        'published_at': timezone.now(),
+                        'category': 'crypto'
+                    }
+
+                    articles.append(article_data)
+
+        except Exception as e:
+            print(f"Error in fallback crypto scraping: {e}")
 
         return articles
 
