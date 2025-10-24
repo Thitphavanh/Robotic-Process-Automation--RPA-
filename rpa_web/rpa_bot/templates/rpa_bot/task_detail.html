@@ -1,0 +1,308 @@
+{% extends 'rpa_bot/base.html' %}
+
+{% block title %}{{ task.name }} - Task Detail{% endblock %}
+
+{% block content %}
+<div x-data="taskDetailData({{ task.id }})" x-init="init()">
+
+    <!-- Back Button -->
+    <div class="mb-4">
+        <a href="{% url 'task_list' %}" class="text-purple-600 hover:text-purple-800 font-medium">
+            <i class="fas fa-arrow-left mr-2"></i>กลับไปรายการ Tasks
+        </a>
+    </div>
+
+    <!-- Task Header -->
+    <div class="bg-white rounded-lg shadow-md p-8 mb-6">
+        <div class="flex items-start justify-between">
+            <div class="flex-1">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                    <i class="fas fa-robot mr-2 text-purple-600"></i>{{ task.name }}
+                </h1>
+                <p class="text-gray-600 mb-4">{{ task.description|default:"ไม่มีคำอธิบาย" }}</p>
+
+                <div class="flex items-center space-x-4">
+                    <span class="px-3 py-1 rounded-full text-sm font-semibold status-{{ task.status }}" x-text="status">
+                        {{ task.get_status_display }}
+                    </span>
+                    <span class="text-sm text-gray-500">
+                        <i class="fas fa-calendar mr-1"></i>{{ task.created_at|date:"d/m/Y H:i" }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col space-y-2">
+                {% if task.status == 'pending' or task.status == 'failed' %}
+                <a href="{% url 'task_run' task.pk %}" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition">
+                    <i class="fas fa-play mr-2"></i>รัน Task
+                </a>
+                {% endif %}
+
+                {% if task.status == 'running' %}
+                <a href="{% url 'task_stop' task.pk %}" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition">
+                    <i class="fas fa-stop mr-2"></i>หยุด Task
+                </a>
+                {% endif %}
+
+                <a href="{% url 'task_update' task.pk %}" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition">
+                    <i class="fas fa-edit mr-2"></i>แก้ไข
+                </a>
+
+                <form method="POST" action="{% url 'task_delete' task.pk %}" onsubmit="return confirm('คุณแน่ใจที่จะลบ Task นี้?')">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition">
+                        <i class="fas fa-trash mr-2"></i>ลบ
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Task Information -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <!-- Task Details Card -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-info-circle mr-2"></i>รายละเอียด Task
+                </h2>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm text-gray-500">ประเภท Task</p>
+                        <p class="font-semibold">{{ task.get_task_type_display }}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-sm text-gray-500">สถานะ</p>
+                        <p class="font-semibold status-{{ task.status }} inline-block px-2 py-1 rounded">{{ task.get_status_display }}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-sm text-gray-500">URL</p>
+                        <p class="font-semibold text-sm break-all">{{ task.url }}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-sm text-gray-500">คำค้นหา</p>
+                        <p class="font-semibold">{{ task.keyword|default:"ไม่มี" }}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-sm text-gray-500">หน่วงเวลา</p>
+                        <p class="font-semibold">{{ task.delay_seconds }} วินาที</p>
+                    </div>
+
+                    <div>
+                        <p class="text-sm text-gray-500">ลองใหม่สูงสุด</p>
+                        <p class="font-semibold">{{ task.max_retries }} ครั้ง</p>
+                    </div>
+
+                    <div>
+                        <p class="text-sm text-gray-500">ลองไปแล้ว</p>
+                        <p class="font-semibold">{{ task.retry_count }} ครั้ง</p>
+                    </div>
+
+                    {% if task.duration %}
+                    <div>
+                        <p class="text-sm text-gray-500">ระยะเวลาทำงาน</p>
+                        <p class="font-semibold">{{ task.duration|floatformat:2 }} วินาที</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if task.error_message %}
+                <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p class="text-sm text-gray-500 mb-1">ข้อความ Error</p>
+                    <p class="text-red-700 font-mono text-sm">{{ task.error_message }}</p>
+                </div>
+                {% endif %}
+
+                {% if task.screenshot_path %}
+                <div class="mt-4">
+                    <p class="text-sm text-gray-500 mb-2">ภาพหน้าจอ</p>
+                    <a href="/{{ task.screenshot_path }}" target="_blank" class="text-purple-600 hover:text-purple-800">
+                        <i class="fas fa-image mr-2"></i>{{ task.screenshot_path }}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Logs -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-terminal mr-2"></i>Logs
+                    </h2>
+                    <button @click="refreshLogs()" class="text-purple-600 hover:text-purple-800">
+                        <i class="fas fa-sync-alt" :class="{'fa-spin': isRefreshing}"></i>
+                    </button>
+                </div>
+
+                <div class="bg-gray-900 rounded-lg p-4 max-h-96 overflow-y-auto font-mono text-sm">
+                    <template x-for="log in logs" :key="log.id">
+                        <div class="mb-2">
+                            <span class="text-gray-500" x-text="log.created_at"></span>
+                            <span :class="{
+                                'text-blue-400': log.level === 'info',
+                                'text-yellow-400': log.level === 'warning',
+                                'text-red-400': log.level === 'error',
+                                'text-green-400': log.level === 'success'
+                            }" x-text="'[' + log.level.toUpperCase() + ']'"></span>
+                            <span class="text-gray-300" x-text="log.message"></span>
+                        </div>
+                    </template>
+
+                    <template x-if="logs.length === 0">
+                        <div class="text-gray-500 text-center py-8">
+                            <i class="fas fa-inbox text-4xl mb-2"></i>
+                            <p>ยังไม่มี Logs</p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Timeline Sidebar -->
+        <div class="space-y-6">
+            <!-- Progress -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fas fa-chart-line mr-2"></i>ความคืบหน้า
+                </h3>
+
+                <div class="mb-4">
+                    <div class="flex justify-between mb-2">
+                        <span class="text-sm text-gray-600">Progress</span>
+                        <span class="text-sm font-semibold" x-text="progress + '%'">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-purple-600 h-2 rounded-full transition-all duration-500" :style="`width: ${progress}%`"></div>
+                    </div>
+                </div>
+
+                {% if task.status == 'running' %}
+                <div class="flex items-center text-blue-600">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>
+                    <span class="text-sm">กำลังทำงาน...</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Timeline -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fas fa-history mr-2"></i>Timeline
+                </h3>
+
+                <div class="space-y-4">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                            <i class="fas fa-plus text-purple-600 text-xs"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-semibold">สร้าง Task</p>
+                            <p class="text-xs text-gray-500">{{ task.created_at|date:"d/m/Y H:i" }}</p>
+                        </div>
+                    </div>
+
+                    {% if task.started_at %}
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                            <i class="fas fa-play text-blue-600 text-xs"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-semibold">เริ่มทำงาน</p>
+                            <p class="text-xs text-gray-500">{{ task.started_at|date:"d/m/Y H:i" }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if task.completed_at %}
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full {% if task.status == 'completed' %}bg-green-100{% else %}bg-red-100{% endif %} flex items-center justify-center">
+                            <i class="fas fa-{% if task.status == 'completed' %}check{% else %}times{% endif %} {% if task.status == 'completed' %}text-green-600{% else %}text-red-600{% endif %} text-xs"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-semibold">{% if task.status == 'completed' %}เสร็จสิ้น{% else %}ล้มเหลว{% endif %}</p>
+                            <p class="text-xs text-gray-500">{{ task.completed_at|date:"d/m/Y H:i" }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg shadow-md p-6 text-white">
+                <h3 class="text-lg font-bold mb-4">
+                    <i class="fas fa-chart-bar mr-2"></i>สถิติ
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between">
+                        <span class="text-purple-100">จำนวนครั้งที่รัน</span>
+                        <span class="font-bold">{{ task.retry_count|add:1 }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-purple-100">อัพเดทล่าสุด</span>
+                        <span class="font-bold text-sm">{{ task.updated_at|timesince }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function taskDetailData(taskId) {
+    return {
+        taskId: taskId,
+        status: '{{ task.status }}',
+        progress: {% if task.status == 'completed' %}100{% else %}0{% endif %},
+        logs: [],
+        isRefreshing: false,
+        autoRefresh: true,
+
+        init() {
+            this.refreshLogs();
+
+            if (this.autoRefresh) {
+                setInterval(() => {
+                    this.refreshStatus();
+                    this.refreshLogs();
+                }, 3000);
+            }
+        },
+
+        async refreshStatus() {
+            try {
+                const response = await fetch(`/api/tasks/${this.taskId}/status/`);
+                const data = await response.json();
+                this.status = data.status;
+                this.progress = data.progress || 0;
+            } catch (error) {
+                console.error('Error refreshing status:', error);
+            }
+        },
+
+        async refreshLogs() {
+            this.isRefreshing = true;
+            try {
+                const response = await fetch(`/api/tasks/${this.taskId}/logs/`);
+                const data = await response.json();
+                this.logs = data.logs;
+            } catch (error) {
+                console.error('Error refreshing logs:', error);
+            } finally {
+                this.isRefreshing = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

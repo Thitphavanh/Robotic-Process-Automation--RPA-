@@ -1,0 +1,22 @@
+{% extends "rpa_bot/base.html" %}
+
+{% block title %}Trigger News Scrape{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h1 class="card-title mb-0">Trigger Manual News Scrape</h1>
+        </div>
+        <div class="card-body">
+            <p>Click the button below to start the news scraping process manually.</p>
+            <p>This will trigger a background task to fetch the latest articles from all configured news sources. This may take a few minutes.</p>
+            <form method="post" action="{% url 'trigger_news_scrape' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">Start Scraping</button>
+                <a href="{% url 'news_dashboard' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

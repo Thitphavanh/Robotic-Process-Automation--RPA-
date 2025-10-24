@@ -1,0 +1,161 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: rpa_db_prod
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rpa_network
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: rpa_redis_prod
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - rpa_network
+    restart: unless-stopped
+
+  # Django Web Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rpa_web_prod
+    command: gunicorn --bind 0.0.0.0:8000 --workers 3 config.wsgi:application
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - screenshots_volume:/app/screenshots
+      - logs_volume:/app/logs
+    expose:
+      - 8000
+    env_file:
+      - .env.prod
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - rpa_network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: rpa_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      - web
+    networks:
+      - rpa_network
+    restart: unless-stopped
+
+  # Certbot for SSL
+  certbot:
+    image: certbot/certbot
+    container_name: rpa_certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - rpa_network
+
+  # Celery Worker
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rpa_celery_prod
+    command: celery -A config worker --loglevel=info
+    volumes:
+      - screenshots_volume:/app/screenshots
+      - logs_volume:/app/logs
+    env_file:
+      - .env.prod
+    depends_on:
+      - db
+      - redis
+      - web
+    networks:
+      - rpa_network
+    restart: unless-stopped
+
+  # Celery Beat
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rpa_celery_beat_prod
+    command: celery -A config beat --loglevel=info
+    volumes:
+      - logs_volume:/app/logs
+    env_file:
+      - .env.prod
+    depends_on:
+      - db
+      - redis
+      - web
+    networks:
+      - rpa_network
+    restart: unless-stopped
+
+  # Flower (Celery Monitoring)
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rpa_flower
+    command: celery -A config flower --port=5555
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env.prod
+    depends_on:
+      - celery
+      - redis
+    networks:
+      - rpa_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
+  screenshots_volume:
+  logs_volume:
+
+networks:
+  rpa_network:
+    driver: bridge

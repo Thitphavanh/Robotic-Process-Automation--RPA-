@@ -1,0 +1,22 @@
+{% extends "rpa_bot/base.html" %}
+
+{% block title %}Trigger Report Generation{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h1 class="card-title mb-0">Trigger Manual Report Generation</h1>
+        </div>
+        <div class="card-body">
+            <p>Click the button below to start the daily report generation process manually.</p>
+            <p>This will trigger a background task to summarize the latest news articles and create a new report. This may take a few minutes.</p>
+            <form method="post" action="{% url 'trigger_generate_report' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">Generate Report</button>
+                <a href="{% url 'news_dashboard' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

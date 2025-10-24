@@ -1,0 +1,202 @@
+{% extends 'rpa_bot/base.html' %}
+
+{% block title %}{% if task %}แก้ไข{% else %}สร้าง{% endif %} Task - RPA Bot Manager{% endblock %}
+
+{% block content %}
+<div x-data="taskFormData()" class="max-w-4xl mx-auto">
+
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-4xl font-bold text-gray-800 mb-2">
+            <i class="fas fa-{% if task %}edit{% else %}plus-circle{% endif %} mr-3"></i>
+            {% if task %}แก้ไข Task{% else %}สร้าง Task ใหม่{% endif %}
+        </h1>
+        <p class="text-gray-600">กรอกข้อมูลเพื่อสร้าง RPA Task</p>
+    </div>
+
+    <!-- Form -->
+    <div class="bg-white rounded-lg shadow-md p-8">
+        <form method="POST" @submit="handleSubmit">
+            {% csrf_token %}
+
+            <!-- Task Name -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="name">
+                    <i class="fas fa-tag mr-2"></i>ชื่อ Task *
+                </label>
+                <input
+                    type="text"
+                    name="name"
+                    id="name"
+                    value="{{ task.name|default:'' }}"
+                    required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="เช่น ค้นหาอุณหภูมิกรุงเทพ"
+                >
+            </div>
+
+            <!-- Description -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="description">
+                    <i class="fas fa-align-left mr-2"></i>คำอธิบาย
+                </label>
+                <textarea
+                    name="description"
+                    id="description"
+                    rows="3"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="อธิบายรายละเอียด Task"
+                >{{ task.description|default:'' }}</textarea>
+            </div>
+
+            <!-- Task Type -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="task_type">
+                    <i class="fas fa-list mr-2"></i>ประเภท Task *
+                </label>
+                <select
+                    name="task_type"
+                    id="task_type"
+                    x-model="taskType"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                    {% for value, label in task_type_choices %}
+                    <option value="{{ value }}" {% if task.task_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- URL -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="url">
+                    <i class="fas fa-link mr-2"></i>URL *
+                </label>
+                <input
+                    type="url"
+                    name="url"
+                    id="url"
+                    value="{{ task.url|default:'https://www.google.com' }}"
+                    required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="https://www.google.com"
+                >
+            </div>
+
+            <!-- Keyword -->
+            <div class="mb-6" x-show="taskType === 'google_search'">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="keyword">
+                    <i class="fas fa-search mr-2"></i>คำค้นหา
+                </label>
+                <input
+                    type="text"
+                    name="keyword"
+                    id="keyword"
+                    value="{{ task.keyword|default:'' }}"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="เช่น อุณหภูมิกรุงเทพ"
+                >
+            </div>
+
+            <!-- Settings Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- Delay Seconds -->
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="delay_seconds">
+                        <i class="fas fa-clock mr-2"></i>หน่วงเวลา (วินาที)
+                    </label>
+                    <input
+                        type="number"
+                        name="delay_seconds"
+                        id="delay_seconds"
+                        value="{{ task.delay_seconds|default:3 }}"
+                        min="1"
+                        max="60"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    >
+                </div>
+
+                <!-- Max Retries -->
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="max_retries">
+                        <i class="fas fa-redo mr-2"></i>ลองใหม่สูงสุด
+                    </label>
+                    <input
+                        type="number"
+                        name="max_retries"
+                        id="max_retries"
+                        value="{{ task.max_retries|default:3 }}"
+                        min="0"
+                        max="10"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    >
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center justify-between pt-6 border-t border-gray-200">
+                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800 font-medium">
+                    <i class="fas fa-arrow-left mr-2"></i>ยกเลิก
+                </a>
+
+                <div class="space-x-4">
+                    {% if task %}
+                    <button
+                        type="submit"
+                        class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-lg transition duration-200"
+                    >
+                        <i class="fas fa-save mr-2"></i>บันทึกการแก้ไข
+                    </button>
+                    {% else %}
+                    <button
+                        type="submit"
+                        class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-lg transition duration-200"
+                    >
+                        <i class="fas fa-plus-circle mr-2"></i>สร้าง Task
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+        </form>
+    </div>
+
+    <!-- Preview Card -->
+    <div class="mt-8 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-6 border border-purple-200">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-eye mr-2"></i>ตัวอย่าง Task
+        </h3>
+        <div class="bg-white rounded-lg p-4">
+            <p class="text-sm text-gray-600 mb-2">ประเภท: <span class="font-semibold" x-text="getTaskTypeLabel()"></span></p>
+            <p class="text-sm text-gray-600 mb-2">URL: <span class="font-semibold">{{ task.url|default:'https://www.google.com' }}</span></p>
+            <p class="text-sm text-gray-600">หน่วงเวลา: <span class="font-semibold">{{ task.delay_seconds|default:3 }} วินาที</span></p>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function taskFormData() {
+    return {
+        taskType: '{{ task.task_type|default:"google_search" }}',
+
+        taskTypeLabels: {
+            'google_search': 'ค้นหา Google',
+            'screenshot': 'จับภาพหน้าจอ',
+            'web_automation': 'ระบบอัตโนมัติเว็บ',
+            'data_extraction': 'ดึงข้อมูล'
+        },
+
+        getTaskTypeLabel() {
+            return this.taskTypeLabels[this.taskType] || this.taskType;
+        },
+
+        handleSubmit(event) {
+            // Validate form before submit
+            console.log('Submitting task form...');
+        }
+    }
+}
+</script>
+{% endblock %}

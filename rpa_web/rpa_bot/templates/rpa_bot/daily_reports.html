@@ -1,0 +1,105 @@
+{% extends 'rpa_bot/base.html' %}
+
+{% block title %}Daily Reports{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-4xl font-bold text-gray-800 mb-2">
+            <i class="fas fa-file-alt text-purple-600 mr-3"></i>รายงานประจำวัน
+        </h1>
+        <p class="text-gray-600">รายงานสรุปข่าวที่สร้างทุกวัน</p>
+    </div>
+
+    <!-- Reports List -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="space-y-4">
+            {% for report in page_obj %}
+            <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-800">
+                            รายงานวันที่ {{ report.report_date|date:"d/m/Y" }}
+                        </h3>
+                        <p class="text-sm text-gray-500 mt-1">
+                            สร้างเมื่อ: {{ report.created_at|date:"d/m/Y H:i" }}
+                        </p>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        {% if report.is_sent %}
+                        <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
+                            <i class="fas fa-check-circle mr-1"></i>ส่งแล้ว
+                        </span>
+                        {% else %}
+                        <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-semibold">
+                            <i class="fas fa-clock mr-1"></i>รอส่ง
+                        </span>
+                        {% endif %}
+
+                        <a href="{% url 'daily_report_detail' report.pk %}"
+                           class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition">
+                            <i class="fas fa-eye mr-2"></i>ดูรายงาน
+                        </a>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                        <p class="text-gray-500">หุ้นไทย</p>
+                        <p class="font-semibold">{% if report.stock_thai_summary %}✓{% else %}—{% endif %}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">หุ้นต่างประเทศ</p>
+                        <p class="font-semibold">{% if report.stock_foreign_summary %}✓{% else %}—{% endif %}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Crypto</p>
+                        <p class="font-semibold">{% if report.crypto_summary %}✓{% else %}—{% endif %}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">ทองคำ</p>
+                        <p class="font-semibold">{% if report.gold_summary %}✓{% else %}—{% endif %}</p>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-12 text-gray-500">
+                <i class="fas fa-inbox text-5xl mb-4"></i>
+                <p class="text-xl">ยังไม่มีรายงาน</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="flex justify-center mt-8">
+            <nav class="flex items-center space-x-2">
+                {% if page_obj.has_previous %}
+                <a href="?page=1" class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+                <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <i class="fas fa-angle-left"></i>
+                </a>
+                {% endif %}
+
+                <span class="px-4 py-2 text-gray-700">
+                    หน้า {{ page_obj.number }} จาก {{ page_obj.paginator.num_pages }}
+                </span>
+
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <i class="fas fa-angle-right"></i>
+                </a>
+                <a href="?page={{ page_obj.paginator.num_pages }}" class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
+                {% endif %}
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

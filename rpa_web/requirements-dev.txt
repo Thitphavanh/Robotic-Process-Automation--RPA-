@@ -1,0 +1,26 @@
+# Development-only dependencies
+
+# Testing
+pytest>=7.4.0
+pytest-django>=4.5.2
+pytest-cov>=4.1.0
+factory-boy>=3.3.0
+
+# Code quality
+black>=23.7.0
+flake8>=6.1.0
+pylint>=2.17.5
+isort>=5.12.0
+mypy>=1.5.0
+
+# Debugging
+django-debug-toolbar>=4.2.0
+ipython>=8.14.0
+ipdb>=0.13.13
+
+# Documentation
+sphinx>=7.1.2
+sphinx-rtd-theme>=1.3.0
+
+# Performance profiling
+django-extensions>=3.2.3

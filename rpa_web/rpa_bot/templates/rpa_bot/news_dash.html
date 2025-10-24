@@ -1,0 +1,187 @@
+{% extends 'rpa_bot/base.html' %}
+
+{% block title %}News Intelligence Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-4xl font-bold text-gray-800 mb-2">
+            <i class="fas fa-newspaper text-purple-600 mr-3"></i>News Intelligence Dashboard
+        </h1>
+        <p class="text-gray-600">ระบบวิเคราะห์ข่าวอัตโนมัติ - อัพเดททุกวันเวลา 10:00 น.</p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-blue-100 text-sm mb-1">ข่าววันนี้</p>
+                    <p class="text-3xl font-bold">{{ today_articles_count }}</p>
+                </div>
+                <i class="fas fa-newspaper text-4xl text-blue-200"></i>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-green-100 text-sm mb-1">รายงานล่าสุด</p>
+                    <p class="text-3xl font-bold">{% if latest_report %}1{% else %}0{% endif %}</p>
+                </div>
+                <i class="fas fa-file-alt text-4xl text-green-200"></i>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-purple-100 text-sm mb-1">หมวดหมู่</p>
+                    <p class="text-3xl font-bold">8</p>
+                </div>
+                <i class="fas fa-layer-group text-4xl text-purple-200"></i>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-orange-100 text-sm mb-1">แหล่งข้อมูล</p>
+                    <p class="text-3xl font-bold">Auto</p>
+                </div>
+                <i class="fas fa-rss text-4xl text-orange-200"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <form method="POST" action="{% url 'trigger_news_scrape' %}" class="w-full">
+            {% csrf_token %}
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-lg shadow-md transition duration-300 flex items-center justify-center">
+                <i class="fas fa-sync-alt mr-3"></i>
+                ดึงข้อมูลข่าวใหม่ทันที
+            </button>
+        </form>
+
+        <form method="POST" action="{% url 'trigger_generate_report' %}" class="w-full">
+            {% csrf_token %}
+            <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 px-6 rounded-lg shadow-md transition duration-300 flex items-center justify-center">
+                <i class="fas fa-file-pdf mr-3"></i>
+                สร้างรายงานทันที
+            </button>
+        </form>
+    </div>
+
+    <!-- Categories Statistics -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">
+            <i class="fas fa-chart-pie mr-2"></i>สถิติตามหมวดหมู่
+        </h2>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {% for category in categories_stats %}
+            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                <p class="text-sm text-gray-500 mb-1">{{ category.name }}</p>
+                <p class="text-2xl font-bold text-purple-600">{{ category.count }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Latest Report -->
+    {% if latest_report %}
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-2xl font-bold text-gray-800">
+                <i class="fas fa-file-alt mr-2"></i>รายงานล่าสุด
+            </h2>
+            <a href="{% url 'daily_report_detail' latest_report.pk %}" class="text-purple-600 hover:text-purple-800 font-semibold">
+                ดูรายงานเต็ม <i class="fas fa-arrow-right ml-1"></i>
+            </a>
+        </div>
+
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm text-gray-500">วันที่รายงาน</span>
+                <span class="font-semibold">{{ latest_report.report_date }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-500">สถานะ</span>
+                <span class="{% if latest_report.is_sent %}text-green-600{% else %}text-yellow-600{% endif %} font-semibold">
+                    {% if latest_report.is_sent %}
+                        <i class="fas fa-check-circle mr-1"></i>ส่งแล้ว
+                    {% else %}
+                        <i class="fas fa-clock mr-1"></i>รอส่ง
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Articles -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-2xl font-bold text-gray-800">
+                <i class="fas fa-newspaper mr-2"></i>ข่าวล่าสุด
+            </h2>
+            <a href="{% url 'news_articles' %}" class="text-purple-600 hover:text-purple-800 font-semibold">
+                ดูทั้งหมด <i class="fas fa-arrow-right ml-1"></i>
+            </a>
+        </div>
+
+        <div class="space-y-4">
+            {% for article in recent_articles %}
+            <div class="border-b border-gray-200 pb-4 last:border-b-0">
+                <div class="flex items-start">
+                    <div class="flex-1">
+                        <h3 class="font-semibold text-gray-800 mb-1">
+                            <a href="{{ article.url }}" target="_blank" class="hover:text-purple-600">
+                                {{ article.title }}
+                            </a>
+                        </h3>
+                        <div class="flex items-center text-sm text-gray-500 space-x-4">
+                            <span><i class="fas fa-tag mr-1"></i>{{ article.source.get_category_display }}</span>
+                            <span><i class="fas fa-clock mr-1"></i>{{ article.published_at|date:"d/m/Y H:i" }}</span>
+                            {% if article.price %}
+                            <span class="text-purple-600 font-semibold">
+                                <i class="fas fa-dollar-sign mr-1"></i>{{ article.price|floatformat:2 }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-8 text-gray-500">
+                <i class="fas fa-inbox text-4xl mb-2"></i>
+                <p>ยังไม่มีข่าว</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+        <a href="{% url 'news_articles' %}" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+            <i class="fas fa-list text-3xl text-blue-600 mb-3"></i>
+            <h3 class="text-lg font-semibold text-gray-800">ดูข่าวทั้งหมด</h3>
+            <p class="text-sm text-gray-500">เรียกดูข่าวที่รวบรวมทั้งหมด</p>
+        </a>
+
+        <a href="{% url 'daily_reports' %}" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+            <i class="fas fa-file-alt text-3xl text-green-600 mb-3"></i>
+            <h3 class="text-lg font-semibold text-gray-800">รายงานประจำวัน</h3>
+            <p class="text-sm text-gray-500">ดูรายงานที่สร้างทั้งหมด</p>
+        </a>
+
+        <a href="/admin/rpa_bot/" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+            <i class="fas fa-cog text-3xl text-purple-600 mb-3"></i>
+            <h3 class="text-lg font-semibold text-gray-800">จัดการข้อมูล</h3>
+            <p class="text-sm text-gray-500">จัดการแหล่งข้อมูลและการตั้งค่า</p>
+        </a>
+    </div>
+</div>
+{% endblock %}

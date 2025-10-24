@@ -1,0 +1,59 @@
+{% extends 'rpa_bot/base.html' %}
+
+{% block title %}Daily Report Detail{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-4xl font-bold text-gray-800 mb-6">
+        <i class="fas fa-file-alt text-green-600 mr-3"></i>Daily Report for {{ report.report_date|date:"F d, Y" }}
+    </h1>
+
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+                <p class="text-gray-600 text-sm">Report ID:</p>
+                <p class="font-semibold">{{ report.pk }}</p>
+            </div>
+            <div>
+                <p class="text-gray-600 text-sm">Report Date:</p>
+                <p class="font-semibold">{{ report.report_date|date:"F d, Y" }}</p>
+            </div>
+            <div>
+                <p class="text-gray-600 text-sm">Generated At:</p>
+                <p class="font-semibold">{{ report.created_at|date:"F d, Y H:i" }}</p>
+            </div>
+            <div>
+                <p class="text-gray-600 text-sm">Status:</p>
+                <p class="font-semibold {% if report.is_completed %}text-green-600{% else %}text-yellow-600{% endif %}">
+                    {% if report.is_completed %}
+                        <i class="fas fa-check-circle mr-1"></i>Completed
+                    {% else %}
+                        <i class="fas fa-clock mr-1"></i>Pending
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                <p class="text-gray-600 text-sm">Sent:</p>
+                <p class="font-semibold {% if report.is_sent %}text-green-600{% else %}text-red-600{% endif %}">
+                    {% if report.is_sent %}
+                        <i class="fas fa-check-circle mr-1"></i>Yes ({{ report.sent_at|date:"F d, Y H:i" }})
+                    {% else %}
+                        <i class="fas fa-times-circle mr-1"></i>No
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <h2 class="text-2xl font-bold text-gray-800 mb-4 mt-6">Full Report Content</h2>
+        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 prose max-w-none">
+            {{ report.full_report|safe }}
+        </div>
+    </div>
+
+    <div class="mt-6">
+        <a href="{% url 'daily_reports' %}" class="btn btn-secondary bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition">
+            <i class="fas fa-arrow-left mr-2"></i>Back to Reports
+        </a>
+    </div>
+</div>
+{% endblock %}

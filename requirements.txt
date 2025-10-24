@@ -1,0 +1,5 @@
+pyautogui
+pyperclip
+anthropic
+python-dotenv
+google-generativeai

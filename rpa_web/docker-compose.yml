@@ -1,0 +1,133 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: rpa_db
+    environment:
+      - POSTGRES_DB=rpa_db
+      - POSTGRES_USER=rpa_user
+      - POSTGRES_PASSWORD=rpa_password_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Port not exposed to host to avoid conflicts - containers can still access via internal network
+    # If you need to access from host, uncomment: ports: - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rpa_user -d rpa_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rpa_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: rpa_redis
+    # Port not exposed to host to avoid conflicts - containers can still access via internal network
+    # If you need to access from host, uncomment: ports: - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - rpa_network
+
+  # Django Web Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: rpa_web
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - screenshots_volume:/app/screenshots
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.dev
+      - POSTGRES_DB=rpa_db
+      - POSTGRES_USER=rpa_user
+      - POSTGRES_PASSWORD=rpa_password_dev
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://redis:6379/1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - DISPLAY=:99
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - rpa_network
+    stdin_open: true
+    tty: true
+
+  # Celery Worker (Background Tasks)
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: rpa_celery
+    command: celery -A config worker --loglevel=info
+    volumes:
+      - .:/app
+      - screenshots_volume:/app/screenshots
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.dev
+      - POSTGRES_DB=rpa_db
+      - POSTGRES_USER=rpa_user
+      - POSTGRES_PASSWORD=rpa_password_dev
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://redis:6379/1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - DISPLAY=:99
+    depends_on:
+      - db
+      - redis
+      - web
+    networks:
+      - rpa_network
+
+  # Celery Beat (Task Scheduler)
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: rpa_celery_beat
+    command: celery -A config beat --loglevel=info
+    volumes:
+      - .:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.dev
+      - POSTGRES_DB=rpa_db
+      - POSTGRES_USER=rpa_user
+      - POSTGRES_PASSWORD=rpa_password_dev
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://redis:6379/1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+      - web
+    networks:
+      - rpa_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
+  screenshots_volume:
+
+networks:
+  rpa_network:
+    driver: bridge
