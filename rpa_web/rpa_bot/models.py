@@ -1,6 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.utils.text import slugify
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
 
 
 class RPATask(models.Model):
@@ -22,6 +25,7 @@ class RPATask(models.Model):
 
     # ข้อมูลพื้นฐาน
     name = models.CharField(max_length=255, verbose_name="ชื่อ Task")
+    slug = models.SlugField(max_length=255, unique=True, blank=True, null=True, verbose_name="Slug")
     description = models.TextField(blank=True, null=True, verbose_name="คำอธิบาย")
     task_type = models.CharField(
         max_length=50,
@@ -175,13 +179,17 @@ class NewsSource(models.Model):
 
     CATEGORY_CHOICES = [
         ("stock_thai", "หุ้นไทย"),
-        ("stock_foreign", "หุ้นต่างประเทศ"),
+        ("stock_us", "หุ้นอเมริกา"),
+        ("stock_europe", "หุ้นยุโรป"),
+        ("stock_china", "หุ้นจีน"),
         ("crypto", "Bitcoin/Crypto"),
         ("gold", "ราคาทองคำ"),
         ("tech_ai", "Technology AI"),
         ("tech_hardware", "Hardware"),
         ("tech_software", "Software"),
         ("football", "Football"),
+        ("ev_car", "EV Car"),
+        ("rocket_space", "Rocket & Space"),
     ]
 
     name = models.CharField(max_length=255, verbose_name="ชื่อแหล่งข้อมูล")
@@ -217,6 +225,7 @@ class NewsArticle(models.Model):
         NewsSource, on_delete=models.CASCADE, related_name="articles"
     )
     title = models.CharField(max_length=500, verbose_name="หัวข้อข่าว")
+    slug = models.SlugField(max_length=600, unique=True, blank=True, null=True, verbose_name="Slug")
     content = models.TextField(verbose_name="เนื้อหา")
     url = models.URLField(max_length=500, verbose_name="URL")
     image_url = models.URLField(
@@ -244,6 +253,7 @@ class NewsArticle(models.Model):
 
     # AI Summary
     ai_summary = models.TextField(blank=True, null=True, verbose_name="สรุปโดย AI")
+    detailed_analysis = models.TextField(blank=True, null=True, verbose_name="การวิเคราะห์แบบละเอียด")
     sentiment = models.CharField(
         max_length=20, blank=True, null=True, verbose_name="Sentiment"
     )
@@ -268,21 +278,36 @@ class DailyReport(models.Model):
     """Model สำหรับรายงานประจำวัน"""
 
     report_date = models.DateField(verbose_name="วันที่รายงาน", unique=True)
+    slug = models.SlugField(max_length=255, unique=True, blank=True, null=True, verbose_name="Slug")
 
     # เนื้อหารายงานแต่ละหมวด
     stock_thai_summary = models.TextField(
         blank=True, null=True, verbose_name="สรุปหุ้นไทย"
     )
-    stock_foreign_summary = models.TextField(
-        blank=True, null=True, verbose_name="สรุปหุ้นต่างประเทศ"
+    stock_us_summary = models.TextField(
+        blank=True, null=True, verbose_name="สรุปหุ้นอเมริกา"
+    )
+    stock_europe_summary = models.TextField(
+        blank=True, null=True, verbose_name="สรุปหุ้นยุโรป"
+    )
+    stock_china_summary = models.TextField(
+        blank=True, null=True, verbose_name="สรุปหุ้นจีน"
     )
     crypto_summary = models.TextField(
         blank=True, null=True, verbose_name="สรุป Bitcoin/Crypto"
     )
     gold_summary = models.TextField(blank=True, null=True, verbose_name="สรุปราคาทอง")
-    tech_summary = models.TextField(blank=True, null=True, verbose_name="สรุปข่าว Tech")
+    tech_ai_summary = models.TextField(blank=True, null=True, verbose_name="สรุปข่าว AI")
+    tech_hardware_summary = models.TextField(blank=True, null=True, verbose_name="สรุปข่าว Hardware")
+    tech_software_summary = models.TextField(blank=True, null=True, verbose_name="สรุปข่าว Software")
     football_summary = models.TextField(
         blank=True, null=True, verbose_name="สรุปข่าว Football"
+    )
+    ev_car_summary = models.TextField(
+        blank=True, null=True, verbose_name="สรุปข่าว EV Car"
+    )
+    rocket_space_summary = models.TextField(
+        blank=True, null=True, verbose_name="สรุปข่าว Rocket & Space"
     )
 
     # รายงานรวม
@@ -308,3 +333,38 @@ class DailyReport(models.Model):
 
     def __str__(self):
         return f"รายงานวันที่ {self.report_date}"
+
+
+# Signal handlers for auto-generating slugs
+@receiver(pre_save, sender=RPATask)
+def generate_rpatask_slug(sender, instance, **kwargs):
+    """สร้าง slug อัตโนมัติสำหรับ RPATask"""
+    if not instance.slug:
+        base_slug = slugify(instance.name, allow_unicode=True)
+        slug = base_slug
+        counter = 1
+        while RPATask.objects.filter(slug=slug).exclude(pk=instance.pk).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        instance.slug = slug
+
+
+@receiver(pre_save, sender=NewsArticle)
+def generate_newsarticle_slug(sender, instance, **kwargs):
+    """สร้าง slug อัตโนมัติสำหรับ NewsArticle"""
+    if not instance.slug:
+        base_slug = slugify(instance.title, allow_unicode=True)
+        slug = base_slug
+        counter = 1
+        while NewsArticle.objects.filter(slug=slug).exclude(pk=instance.pk).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        instance.slug = slug
+
+
+@receiver(pre_save, sender=DailyReport)
+def generate_dailyreport_slug(sender, instance, **kwargs):
+    """สร้าง slug อัตโนมัติสำหรับ DailyReport"""
+    if not instance.slug:
+        slug = slugify(f"report-{instance.report_date}", allow_unicode=True)
+        instance.slug = slug
