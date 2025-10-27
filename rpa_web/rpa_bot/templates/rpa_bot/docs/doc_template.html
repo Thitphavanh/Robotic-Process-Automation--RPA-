@@ -1,0 +1,808 @@
+{% load static %}
+{% load doc_tags %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ current_section.title }} - RPA Bot Documentation</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Prism.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            scroll-behavior: smooth;
+        }
+
+        /* Layout */
+        .doc-layout {
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            min-height: 100vh;
+        }
+
+        @media (max-width: 1280px) {
+            .doc-layout {
+                grid-template-columns: 280px 1fr;
+            }
+            .toc-sidebar {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .doc-layout {
+                grid-template-columns: 1fr;
+            }
+            .left-sidebar {
+                display: none;
+            }
+        }
+
+        /* Left Sidebar */
+        .left-sidebar {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            border-right: 1px solid #e5e7eb;
+            background: white;
+            padding: 1.5rem 1rem;
+        }
+
+        .dark .left-sidebar {
+            background: #0d1117;
+            border-right-color: #30363d;
+        }
+
+        /* Sidebar Group */
+        .sidebar-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .group-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            background: transparent;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .dark .group-toggle {
+            color: #8b949e;
+        }
+
+        .group-toggle:hover {
+            background: #f3f4f6;
+        }
+
+        .dark .group-toggle:hover {
+            background: #161b22;
+        }
+
+        .group-toggle i {
+            transition: transform 0.2s;
+        }
+
+        .group-toggle.collapsed i {
+            transform: rotate(-90deg);
+        }
+
+        .group-items {
+            margin-top: 0.5rem;
+            padding-left: 0.5rem;
+        }
+
+        /* Nav Links */
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.125rem;
+            color: #4b5563;
+            text-decoration: none;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .dark .nav-link {
+            color: #8b949e;
+        }
+
+        .nav-link:hover {
+            background: #f3f4f6;
+            color: #111827;
+        }
+
+        .dark .nav-link:hover {
+            background: #161b22;
+            color: #c9d1d9;
+        }
+
+        .nav-link.active {
+            background: #eff6ff;
+            color: #2563eb;
+            font-weight: 600;
+        }
+
+        .dark .nav-link.active {
+            background: #1e3a8a;
+            color: #60a5fa;
+        }
+
+        .nav-link i {
+            width: 1.25rem;
+            margin-right: 0.5rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            max-width: 100%;
+            padding: 2rem 3rem;
+            overflow-x: hidden;
+        }
+
+        /* Right Sidebar (TOC) */
+        .toc-sidebar {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            border-left: 1px solid #e5e7eb;
+            background: white;
+            padding: 2rem 1.5rem;
+        }
+
+        .dark .toc-sidebar {
+            background: #0d1117;
+            border-left-color: #30363d;
+        }
+
+        .toc-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            margin-bottom: 1rem;
+        }
+
+        .dark .toc-title {
+            color: #8b949e;
+        }
+
+        .toc-link {
+            display: block;
+            padding: 0.375rem 0;
+            color: #6b7280;
+            text-decoration: none;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            transition: color 0.2s;
+            border-left: 2px solid transparent;
+            padding-left: 0.75rem;
+        }
+
+        .dark .toc-link {
+            color: #8b949e;
+        }
+
+        .toc-link:hover {
+            color: #2563eb;
+        }
+
+        .dark .toc-link:hover {
+            color: #60a5fa;
+        }
+
+        .toc-link.active {
+            color: #2563eb;
+            border-left-color: #2563eb;
+            font-weight: 600;
+        }
+
+        .dark .toc-link.active {
+            color: #60a5fa;
+            border-left-color: #60a5fa;
+        }
+
+        .toc-link.level-3 {
+            padding-left: 1.5rem;
+            font-size: 0.8125rem;
+        }
+
+        /* Code Blocks */
+        .code-block-wrapper {
+            position: relative;
+            margin: 1.5rem 0;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            background: #1e1e1e;
+            border: 1px solid #333;
+        }
+
+        .dark .code-block-wrapper {
+            background: #161b22;
+            border-color: #30363d;
+        }
+
+        .code-block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background: #2d2d2d;
+            border-bottom: 1px solid #404040;
+        }
+
+        .dark .code-block-header {
+            background: #0d1117;
+            border-bottom-color: #21262d;
+        }
+
+        .code-block-language {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #8b949e;
+            letter-spacing: 0.05em;
+        }
+
+        .code-copy-button {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background: transparent;
+            border: 1px solid #404040;
+            border-radius: 0.25rem;
+            color: #8b949e;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.75rem;
+        }
+
+        .code-copy-button:hover {
+            background: #404040;
+            color: #c9d1d9;
+        }
+
+        .code-copy-button.copied {
+            border-color: #3fb950;
+            color: #3fb950;
+        }
+
+        .code-block-pre {
+            margin: 0;
+            padding: 1rem;
+            overflow-x: auto;
+            background: transparent;
+            font-size: 0.875rem;
+            line-height: 1.7;
+        }
+
+        .code-block-pre code {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            background: transparent;
+            color: #c9d1d9;
+        }
+
+        /* Typography */
+        .prose h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #111827;
+            line-height: 1.2;
+        }
+
+        .dark .prose h1 {
+            color: #f9fafb;
+        }
+
+        .prose h2 {
+            font-size: 1.875rem;
+            font-weight: 600;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            color: #1f2937;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            scroll-margin-top: 2rem;
+        }
+
+        .dark .prose h2 {
+            color: #e5e7eb;
+            border-bottom-color: #30363d;
+        }
+
+        .prose h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 2rem;
+            margin-bottom: 0.75rem;
+            color: #374151;
+            scroll-margin-top: 2rem;
+        }
+
+        .dark .prose h3 {
+            color: #d1d5db;
+        }
+
+        .prose h4 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #4b5563;
+            scroll-margin-top: 2rem;
+        }
+
+        .dark .prose h4 {
+            color: #9ca3af;
+        }
+
+        .prose p {
+            margin-bottom: 1rem;
+            color: #4b5563;
+            line-height: 1.75;
+        }
+
+        .dark .prose p {
+            color: #9ca3af;
+        }
+
+        .prose ul, .prose ol {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+        }
+
+        .prose li {
+            margin-bottom: 0.5rem;
+            color: #4b5563;
+        }
+
+        .dark .prose li {
+            color: #9ca3af;
+        }
+
+        .prose code {
+            background: #f3f4f6;
+            padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem;
+            font-size: 0.875em;
+        }
+
+        .dark .prose code {
+            background: #161b22;
+        }
+
+        /* Callouts */
+        .callout {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1.5rem 0;
+            border-left: 4px solid;
+        }
+
+        .callout.info {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1e40af;
+        }
+
+        .dark .callout.info {
+            background: #1e3a8a;
+            color: #bfdbfe;
+        }
+
+        .callout.warning {
+            background: #fef3c7;
+            border-color: #f59e0b;
+            color: #92400e;
+        }
+
+        .dark .callout.warning {
+            background: #78350f;
+            color: #fde68a;
+        }
+
+        .callout.success {
+            background: #d1fae5;
+            border-color: #10b981;
+            color: #065f46;
+        }
+
+        .dark .callout.success {
+            background: #064e3b;
+            color: #a7f3d0;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #374151;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+
+        /* Dark mode */
+        .dark {
+            background: #0d1117;
+            color: #c9d1d9;
+        }
+
+        /* Light mode main content background */
+        body {
+            background: #ffffff;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .dark body {
+            background: #0d1117;
+        }
+
+        /* Main content area background */
+        .main-content {
+            background: #ffffff;
+        }
+
+        .dark .main-content {
+            background: #0d1117;
+        }
+
+        /* Links */
+        .prose a {
+            color: #2563eb;
+            text-decoration: underline;
+        }
+
+        .dark .prose a {
+            color: #60a5fa;
+        }
+
+        .prose a:hover {
+            color: #1d4ed8;
+        }
+
+        .dark .prose a:hover {
+            color: #93c5fd;
+        }
+
+        /* Strong/Bold text */
+        .prose strong {
+            color: #111827;
+        }
+
+        .dark .prose strong {
+            color: #e5e7eb;
+        }
+
+        /* Tables */
+        .prose table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .prose th {
+            background: #f3f4f6;
+            color: #111827;
+            font-weight: 600;
+            padding: 0.75rem;
+            text-align: left;
+            border: 1px solid #e5e7eb;
+        }
+
+        .dark .prose th {
+            background: #161b22;
+            color: #e5e7eb;
+            border-color: #30363d;
+        }
+
+        .prose td {
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            color: #4b5563;
+        }
+
+        .dark .prose td {
+            border-color: #30363d;
+            color: #9ca3af;
+        }
+
+        /* Blockquotes */
+        .prose blockquote {
+            border-left: 4px solid #e5e7eb;
+            padding-left: 1rem;
+            margin: 1.5rem 0;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .dark .prose blockquote {
+            border-left-color: #30363d;
+            color: #8b949e;
+        }
+
+        /* Horizontal rules */
+        .prose hr {
+            border-color: #e5e7eb;
+            margin: 2rem 0;
+        }
+
+        .dark .prose hr {
+            border-color: #30363d;
+        }
+
+        /* Smooth transitions */
+        * {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        /* Prevent transition on page load */
+        .preload * {
+            transition: none !important;
+        }
+    </style>
+</head>
+<body class="preload" x-data="{
+    darkMode: localStorage.getItem('darkMode') === 'true',
+    activeHeading: '',
+    headings: []
+}"
+x-init="
+    // Remove preload class after a short delay to enable transitions
+    setTimeout(() => document.body.classList.remove('preload'), 100);
+
+    $watch('darkMode', val => {
+        localStorage.setItem('darkMode', val);
+        document.documentElement.classList.toggle('dark', val);
+    });
+    if (darkMode) document.documentElement.classList.add('dark');
+
+    // Extract headings for TOC
+    setTimeout(() => {
+        const content = document.querySelector('.main-content');
+        if (content) {
+            const h2s = content.querySelectorAll('h2');
+            const h3s = content.querySelectorAll('h3');
+            const h4s = content.querySelectorAll('h4');
+            const allHeadings = [...h2s, ...h3s, ...h4s].sort((a, b) =>
+                a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
+            );
+
+            headings = allHeadings.map((h, index) => {
+                const id = h.id || 'heading-' + index;
+                h.id = id;
+                return {
+                    id: id,
+                    text: h.textContent.trim(),
+                    level: parseInt(h.tagName.substring(1))
+                };
+            });
+
+            if (headings.length > 0) {
+                activeHeading = headings[0].id;
+            }
+        }
+    }, 100);
+
+    // Scroll spy
+    let observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                activeHeading = entry.target.id;
+            }
+        });
+    }, { rootMargin: '-20% 0% -35% 0%' });
+
+    setTimeout(() => {
+        document.querySelectorAll('h2, h3, h4').forEach(h => {
+            if (h.id) observer.observe(h);
+        });
+    }, 200);
+">
+
+<div class="doc-layout">
+    <!-- Left Sidebar -->
+    <aside class="left-sidebar">
+        <!-- Logo -->
+        <div class="mb-8">
+            <a href="{% url 'dashboard' %}" class="flex items-center space-x-2 px-2">
+                <i class="fas fa-robot text-2xl text-blue-500"></i>
+                <div>
+                    <div class="font-bold text-lg">RPA Bot</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">Documentation</div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Navigation Groups -->
+        <nav>
+            {% for group_code, group_data in grouped_sections.items %}
+            <div class="sidebar-group" x-data="{ open: {% if current_section.group == group_code %}true{% else %}false{% endif %} }">
+                <button @click="open = !open" class="group-toggle" :class="{ 'collapsed': !open }">
+                    <span>{{ group_data.name }}</span>
+                    <i class="fas fa-chevron-down text-xs"></i>
+                </button>
+                <div x-show="open" x-collapse class="group-items">
+                    {% for section in group_data.sections %}
+                    <a href="{% url 'docs_section' section=section.slug %}"
+                       class="nav-link {% if current_section.slug == section.slug %}active{% endif %}">
+                        <i class="fas {{ section.icon }}"></i>
+                        <span>{{ section.title }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </nav>
+
+        <!-- Dark Mode Toggle -->
+        <div class="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button @click="darkMode = !darkMode"
+                    class="flex items-center space-x-2 px-3 py-2 w-full rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+                <i class="fas text-sm" :class="darkMode ? 'fa-sun text-yellow-400' : 'fa-moon text-gray-600'"></i>
+                <span class="text-sm" x-text="darkMode ? 'Light Mode' : 'Dark Mode'"></span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content prose dark:prose-invert max-w-none">
+        <article>
+            <h1>{{ current_section.title }}</h1>
+            {% if current_section.description %}
+            <p class="lead text-xl text-gray-600 dark:text-gray-400">
+                {{ current_section.description }}
+            </p>
+            {% endif %}
+
+            {% if current_section.content %}
+            <div class="doc-content">
+                {{ current_section.content|render_content }}
+            </div>
+            {% endif %}
+
+            {% if content_blocks %}
+            <div class="content-blocks">
+                {% for block in content_blocks %}
+                    {% if block.block_type == 'heading' %}
+                        <h2 id="{{ block.heading|slugify }}">{{ block.heading }}</h2>
+                        {% if block.content %}<p>{{ block.content|safe }}</p>{% endif %}
+                    {% elif block.block_type == 'paragraph' %}
+                        <p>{{ block.content|safe }}</p>
+                    {% elif block.block_type == 'code' %}
+                        {% code_block block.content block.code_language block.heading %}
+                    {% elif block.block_type == 'alert' %}
+                        <div class="callout {{ block.alert_type }}">
+                            {% if block.heading %}<strong>{{ block.heading }}</strong><br>{% endif %}
+                            {{ block.content|safe }}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </article>
+
+        <!-- Footer -->
+        <div class="mt-16 pt-8 border-t border-gray-200 dark:border-gray-700 flex justify-between text-sm">
+            <a href="{% url 'dashboard' %}" class="text-blue-500 hover:text-blue-600 no-underline">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+            </a>
+            <div class="text-gray-500 dark:text-gray-400">
+                Last updated: {{ current_section.updated_at|date:"M d, Y" }}
+            </div>
+        </div>
+    </main>
+
+    <!-- Right Sidebar (TOC) -->
+    <aside class="toc-sidebar hidden xl:block">
+        <div class="toc-title">On This Page</div>
+        <nav>
+            <template x-for="heading in headings" :key="heading.id">
+                <a :href="'#' + heading.id"
+                   @click.prevent="document.getElementById(heading.id).scrollIntoView({ behavior: 'smooth', block: 'start' })"
+                   class="toc-link"
+                   :class="{
+                       'active': activeHeading === heading.id,
+                       'level-2': heading.level === 2,
+                       'level-3': heading.level === 3,
+                       'level-4': heading.level === 4
+                   }"
+                   x-text="heading.text"></a>
+            </template>
+        </nav>
+    </aside>
+</div>
+
+<!-- Prism.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+
+<!-- Copy Functionality -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Apply syntax highlighting
+    Prism.highlightAll();
+
+    // Copy button functionality
+    document.querySelectorAll('.code-copy-button').forEach(button => {
+        button.addEventListener('click', async function() {
+            const codeId = this.getAttribute('data-code-id');
+            const codeElement = document.getElementById(codeId);
+            const copyIcon = this.querySelector('.copy-icon');
+            const checkIcon = this.querySelector('.check-icon');
+
+            if (!codeElement) return;
+
+            try {
+                await navigator.clipboard.writeText(codeElement.textContent);
+
+                // Show success feedback
+                copyIcon.style.display = 'none';
+                checkIcon.style.display = 'block';
+                this.classList.add('copied');
+
+                setTimeout(() => {
+                    copyIcon.style.display = 'block';
+                    checkIcon.style.display = 'none';
+                    this.classList.remove('copied');
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+            }
+        });
+    });
+});
+</script>
+</body>
+</html>

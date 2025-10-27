@@ -1,0 +1,358 @@
+{% load static %}
+{% load doc_tags %}
+<!DOCTYPE html>
+<html lang="th" x-data="{ darkMode: localStorage.getItem('darkMode') === 'true' }"
+      x-init="$watch('darkMode', val => localStorage.setItem('darkMode', val))"
+      :class="{ 'dark': darkMode }">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ current_section.title }} - RPA Bot Documentation</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Prism.js for Syntax Highlighting (Tomorrow Night Theme) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        /* Nextra-style Code Blocks */
+        .code-block-wrapper {
+            position: relative;
+            margin: 1.5rem 0;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            background: #1e1e1e;
+            border: 1px solid #333;
+        }
+
+        .dark .code-block-wrapper {
+            background: #161b22;
+            border-color: #30363d;
+        }
+
+        .code-block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background: #2d2d2d;
+            border-bottom: 1px solid #404040;
+        }
+
+        .dark .code-block-header {
+            background: #0d1117;
+            border-bottom-color: #21262d;
+        }
+
+        .code-block-language {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #8b949e;
+            letter-spacing: 0.05em;
+        }
+
+        .code-block-filename {
+            font-size: 0.875rem;
+            color: #c9d1d9;
+            margin-right: 1rem;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, monospace;
+        }
+
+        .code-copy-button {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.375rem 0.75rem;
+            background: transparent;
+            border: 1px solid #404040;
+            border-radius: 0.375rem;
+            color: #8b949e;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+
+        .code-copy-button:hover {
+            background: #404040;
+            border-color: #525252;
+            color: #c9d1d9;
+        }
+
+        .code-copy-button.copied {
+            border-color: #3fb950;
+            color: #3fb950;
+        }
+
+        .code-block-pre {
+            margin: 0;
+            padding: 1rem;
+            overflow-x: auto;
+            background: transparent;
+            font-size: 0.875rem;
+            line-height: 1.7;
+        }
+
+        .code-block-pre code {
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, 'Cascadia Code', 'Courier New', monospace;
+            background: transparent;
+            color: #c9d1d9;
+            padding: 0;
+            border: none;
+        }
+
+        /* Scrollbar Styling */
+        .code-block-pre::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .code-block-pre::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        .code-block-pre::-webkit-scrollbar-thumb {
+            background: #404040;
+            border-radius: 4px;
+        }
+
+        .code-block-pre::-webkit-scrollbar-thumb:hover {
+            background: #525252;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+            overflow-y: auto;
+            border-right: 1px solid #e5e7eb;
+        }
+
+        .dark .sidebar {
+            border-right-color: #374151;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.625rem 0.75rem;
+            color: #4b5563;
+            text-decoration: none;
+            border-radius: 0.375rem;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+
+        .dark .nav-link {
+            color: #9ca3af;
+        }
+
+        .nav-link:hover {
+            background: #f3f4f6;
+            color: #111827;
+        }
+
+        .dark .nav-link:hover {
+            background: #374151;
+            color: #f9fafb;
+        }
+
+        .nav-link.active {
+            background: #3b82f6;
+            color: white;
+            font-weight: 600;
+        }
+
+        .dark .nav-link.active {
+            background: #2563eb;
+        }
+
+        /* Typography */
+        .prose h1 {
+            font-size: 2.25rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            color: #111827;
+        }
+
+        .dark .prose h1 {
+            color: #f9fafb;
+        }
+
+        .prose h2 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: #1f2937;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .dark .prose h2 {
+            color: #e5e7eb;
+            border-bottom-color: #374151;
+        }
+
+        .prose p {
+            margin-bottom: 1rem;
+            color: #4b5563;
+            line-height: 1.75;
+        }
+
+        .dark .prose p {
+            color: #9ca3af;
+        }
+
+        /* Callout Boxes */
+        .callout {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1.5rem 0;
+            border-left: 4px solid;
+        }
+
+        .callout.info {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1e40af;
+        }
+
+        .dark .callout.info {
+            background: #1e3a8a;
+            color: #bfdbfe;
+        }
+    </style>
+</head>
+<body class="bg-white dark:bg-gray-900 transition-colors duration-200">
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <aside class="sidebar bg-white dark:bg-gray-900 px-4 py-6">
+            <div class="mb-8">
+                <a href="{% url 'dashboard' %}" class="flex items-center space-x-3 text-xl font-bold text-gray-900 dark:text-white">
+                    <i class="fas fa-robot text-blue-500"></i>
+                    <span>RPA Bot</span>
+                </a>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-9">Documentation</p>
+            </div>
+
+            <nav class="space-y-6">
+                {% for group_code, group_data in grouped_sections.items %}
+                <div>
+                    <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-3">
+                        {{ group_data.name }}
+                    </div>
+                    <div class="space-y-1">
+                        {% for section in group_data.sections %}
+                        <a href="{% url 'docs_section' section=section.slug %}"
+                           class="nav-link {% if current_section.slug == section.slug %}active{% endif %}">
+                            <i class="fas {{ section.icon }} w-5 mr-2"></i>
+                            <span>{{ section.title }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1">
+            <div class="max-w-4xl mx-auto px-8 py-12 prose dark:prose-invert">
+                <header class="mb-8">
+                    <h1>{{ current_section.title }}</h1>
+                    {% if current_section.description %}
+                    <p class="text-lg">{{ current_section.description }}</p>
+                    {% endif %}
+                </header>
+
+                {% if current_section.content %}
+                <div class="doc-content">
+                    {{ current_section.content|render_content }}
+                </div>
+                {% endif %}
+
+                {% if content_blocks %}
+                <div class="space-y-6">
+                    {% for block in content_blocks %}
+                        {% if block.block_type == 'heading' %}
+                            <h2>{{ block.heading }}</h2>
+                            {% if block.content %}<p>{{ block.content }}</p>{% endif %}
+                        {% elif block.block_type == 'paragraph' %}
+                            <p>{{ block.content|safe }}</p>
+                        {% elif block.block_type == 'code' %}
+                            {% code_block block.content block.code_language block.heading %}
+                        {% elif block.block_type == 'alert' %}
+                            <div class="callout {{ block.alert_type }}">
+                                {% if block.heading %}<strong>{{ block.heading }}</strong>{% endif %}
+                                {{ block.content|safe }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Dark Mode Toggle -->
+    <button @click="darkMode = !darkMode"
+            class="fixed bottom-8 right-8 w-12 h-12 bg-blue-500 text-white rounded-full shadow-lg hover:scale-110 transition-transform">
+        <i class="fas" :class="darkMode ? 'fa-sun' : 'fa-moon'"></i>
+    </button>
+
+    <!-- Prism.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+
+    <!-- Copy Functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            Prism.highlightAll();
+
+            document.querySelectorAll('.code-copy-button').forEach(button => {
+                button.addEventListener('click', async function() {
+                    const codeId = this.getAttribute('data-code-id');
+                    const codeElement = document.getElementById(codeId);
+                    const copyIcon = this.querySelector('.copy-icon');
+                    const checkIcon = this.querySelector('.check-icon');
+
+                    if (!codeElement) return;
+
+                    try {
+                        await navigator.clipboard.writeText(codeElement.textContent);
+                        copyIcon.style.display = 'none';
+                        checkIcon.style.display = 'block';
+                        this.classList.add('copied');
+
+                        setTimeout(() => {
+                            copyIcon.style.display = 'block';
+                            checkIcon.style.display = 'none';
+                            this.classList.remove('copied');
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Copy failed:', err);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

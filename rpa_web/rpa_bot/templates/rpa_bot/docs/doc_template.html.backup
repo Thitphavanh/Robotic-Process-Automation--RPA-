@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ current_section.title }} - RPA Bot Documentation</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        /* Dark mode */
+        .dark-mode {
+            background-color: #0d1117;
+            color: #c9d1d9;
+        }
+
+        .dark-mode .nav-link:hover {
+            background-color: rgba(110, 118, 129, 0.15);
+            color: #e6edf3;
+            transform: translateX(2px);
+        }
+
+        .dark-mode .nav-link.active {
+            background-color: rgba(88, 166, 255, 0.12);
+            color: #58a6ff;
+            box-shadow: 0 0 0 1px rgba(88, 166, 255, 0.2);
+        }
+
+        .dark-mode .nav-link.active::before {
+            background: linear-gradient(to bottom, #58a6ff, #1f6feb);
+        }
+
+        .dark-mode .sidebar {
+            background-color: #0d1117;
+            border-right-color: #30363d;
+        }
+
+        .dark-mode .top-nav {
+            background-color: rgba(13, 17, 23, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom-color: #30363d;
+        }
+
+        .dark-mode pre {
+            background-color: #161b22;
+            border-color: #30363d;
+        }
+
+        /* Light mode */
+        body {
+            background-color: #ffffff;
+            color: #1f2937;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.625rem 0.75rem;
+            font-size: 0.875rem;
+            color: #6b7280;
+            border-radius: 0.5rem;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            position: relative;
+            font-weight: 500;
+        }
+
+        .nav-link:hover {
+            background-color: #f3f4f6;
+            color: #1f2937;
+            transform: translateX(2px);
+        }
+
+        .nav-link.active {
+            background-color: #eff6ff;
+            color: #2563eb;
+            font-weight: 600;
+            box-shadow: 0 0 0 1px #dbeafe;
+        }
+
+        .nav-link.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 70%;
+            background: linear-gradient(to bottom, #3b82f6, #2563eb);
+            border-radius: 0 2px 2px 0;
+        }
+
+        .sidebar {
+            background-color: #ffffff;
+            border-right: 1px solid #e5e7eb;
+        }
+
+        .top-nav {
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .btn-hover {
+            transition: all 0.2s ease;
+        }
+
+        .btn-hover:hover {
+            transform: translateY(-1px);
+        }
+
+        /* Code blocks */
+        pre {
+            background-color: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 1rem;
+            overflow-x: auto;
+        }
+
+        code {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Courier New', monospace;
+            font-size: 0.875rem;
+        }
+
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Sidebar width */
+        .sidebar {
+            width: 280px;
+        }
+
+        /* Content max width */
+        .content-wrapper {
+            max-width: 1280px;
+        }
+
+        /* Page transition animation */
+        .content-wrapper {
+            animation: fadeInUp 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Smooth hover transitions */
+        a {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        button {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Loading state for navigation */
+        .nav-link.loading {
+            opacity: 0.5;
+            pointer-events: none;
+            transform: scale(0.98);
+        }
+
+        /* Quick link animations */
+        .quick-link {
+            will-change: transform, box-shadow;
+        }
+
+        .quick-link:hover {
+            transform: translateY(-4px);
+        }
+
+        .quick-link:active {
+            transform: translateY(-2px);
+        }
+
+        /* Smooth sidebar transitions */
+        .sidebar {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, .sidebar {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Navigation link improvements */
+        .nav-link {
+            will-change: transform, background-color;
+        }
+
+        /* Reduce motion for users who prefer it */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+    </style>
+</head>
+<body x-data="{ darkMode: localStorage.getItem('darkMode') === 'true', sidebarOpen: window.innerWidth >= 1024 }"
+      :class="{ 'dark-mode': darkMode }"
+      x-init="$watch('darkMode', value => localStorage.setItem('darkMode', value))">
+
+    <!-- Top Navigation -->
+    <nav class="top-nav fixed top-0 left-0 right-0 h-16 z-50">
+        <div class="h-full px-4 flex items-center justify-between">
+            <!-- Left -->
+            <div class="flex items-center space-x-4">
+                <button @click="sidebarOpen = !sidebarOpen"
+                        class="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+                <a href="{% url 'dashboard' %}" class="flex items-center space-x-2">
+                    <i class="fas fa-robot text-2xl text-blue-600"></i>
+                    <span class="font-bold text-lg">RPA Bot</span>
+                </a>
+            </div>
+
+            <!-- Right -->
+            <div class="flex items-center space-x-2">
+                <a href="{% url 'dashboard' %}"
+                   class="hidden sm:flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all btn-hover">
+                    <i class="fas fa-arrow-left mr-2"></i>Dashboard
+                </a>
+                <button @click="darkMode = !darkMode"
+                        class="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all btn-hover">
+                    <i class="fas text-base" :class="darkMode ? 'fa-sun text-yellow-400' : 'fa-moon text-gray-600'"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Layout Container -->
+    <div class="flex pt-16">
+        <!-- Sidebar -->
+        <aside class="sidebar fixed left-0 top-16 bottom-0 overflow-y-auto z-40 transition-transform duration-200"
+               :class="{ '-translate-x-full lg:translate-x-0': !sidebarOpen }">
+            <div class="p-6 pb-16">
+                <!-- Search -->
+                <div class="mb-6">
+                    <div class="relative">
+                        <input type="text"
+                               placeholder="Search documentation..."
+                               class="w-full px-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700">
+                        <i class="fas fa-search absolute right-3 top-2.5 text-gray-400"></i>
+                    </div>
+                </div>
+
+                <!-- Navigation - Dynamic from Database -->
+                <nav class="space-y-6">
+                    {% for group_code, group_data in grouped_sections.items %}
+                    <div x-data="{ open: {% if current_section.group == group_code %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open" class="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                            {{ group_data.name }}
+                            <i class="fas fa-chevron-down text-xs transition-transform" :class="{ 'rotate-180': open }"></i>
+                        </button>
+                        <div x-show="open" x-collapse class="mt-2 space-y-1">
+                            {% for section in group_data.sections %}
+                            <a href="{% url 'docs_section' section=section.slug %}"
+                               class="nav-link {% if current_section.slug == section.slug %}active{% endif %}"
+                               data-section="{{section.slug}}">
+                                <i class="fas {{ section.icon }} w-5 mr-2"></i>
+                                <span>{{ section.title }}</span>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </nav>
+
+                <!-- Version Info -->
+                <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                        <div class="font-semibold mb-1">Version 1.0.0</div>
+                        <div>Django 5.0 + Python 3.10</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 lg:ml-[280px] xl:mr-[280px]">
+            <div class="content-wrapper mx-auto px-6 lg:px-12 py-8 lg:py-12">
+                <!-- Breadcrumb -->
+                <div class="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                    <a href="{% url 'docs_home' %}" class="hover:text-blue-600">Docs</a>
+                    <span class="mx-2">/</span>
+                    <span class="text-gray-900 dark:text-gray-100">{{ current_section.title }}</span>
+                </div>
+
+                <!-- Content -->
+                <article class="prose dark:prose-invert max-w-none">
+                    <!-- Hero -->
+                    <div class="mb-12">
+                        <h1 class="text-4xl lg:text-5xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+                            {{ current_section.title }}
+                        </h1>
+                        <p class="text-xl text-gray-600 dark:text-gray-400">
+                            {{ current_section.description }}
+                        </p>
+                    </div>
+
+{% load markdown %}
+
+                    {{ current_section.content|markdown|safe }}
+
+                </article>
+            </div>
+        </main>
+
+        <!-- Right Sidebar (Table of Contents) -->
+        <aside class="fixed right-0 top-16 bottom-0 w-[280px] overflow-y-auto z-30 hidden xl:block p-6 border-l border-gray-200 dark:border-gray-700" x-data="toc">
+            <div class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+                On This Page
+            </div>
+            <nav id="toc-nav" class="space-y-2">
+                <template x-for="item in items" :key="item.id">
+                    <a :href="`#${item.id}`" @click.prevent="scrollTo(item.id)"
+                       class="block text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                       :class="{ 'ml-4': item.level === 3, 'text-blue-600 dark:text-blue-400 font-semibold': activeId === item.id }">
+                        <span x-text="item.text"></span>
+                    </a>
+                </template>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Mobile Overlay -->
+    <div x-show="sidebarOpen && window.innerWidth < 1024"
+         @click="sidebarOpen = false"
+         class="fixed inset-0 bg-black/50 z-30 lg:hidden"
+         x-transition></div>
+
+    <!-- Smooth Navigation Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add smooth page transition for all documentation links
+            const docLinks = document.querySelectorAll('.nav-link, .quick-link, a[href*="/docs/"]');
+
+            docLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    // Only apply to internal doc links
+                    const href = this.getAttribute('href');
+                    if (href && href.includes('/docs/') && !href.startsWith('http')) {
+                        e.preventDefault();
+
+                        // Add loading state
+                        this.classList.add('loading');
+
+                        // Fade out content
+                        const contentWrapper = document.querySelector('.content-wrapper');
+                        if (contentWrapper) {
+                            contentWrapper.style.opacity = '0';
+                            contentWrapper.style.transform = 'translateY(10px)';
+                        }
+
+                        // Navigate after animation
+                        setTimeout(() => {
+                            window.location.href = href;
+                        }, 200);
+                    }
+                });
+            });
+
+            // Scroll to top smoothly on page load
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+
+            // Add intersection observer for fade-in animations
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            }, observerOptions);
+
+            // Observe all sections for smooth reveal
+            document.querySelectorAll('.quick-link, article > div, article > h2').forEach(el => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(20px)';
+                el.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
+                observer.observe(el);
+            });
+
+            // Trigger initial animations
+            setTimeout(() => {
+                document.querySelectorAll('.quick-link, article > div, article > h2').forEach((el, index) => {
+                    setTimeout(() => {
+                        el.style.opacity = '1';
+                        el.style.transform = 'translateY(0)';
+                    }, index * 100);
+                });
+            }, 100);
+        });
+    </script>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('toc', () => ({
+                items: [],
+                activeId: null,
+
+                init() {
+                    const content = document.querySelector('article.prose');
+                    if (!content) return;
+
+                    const headings = content.querySelectorAll('h2, h3');
+                    this.items = Array.from(headings).map(heading => {
+                        const id = heading.id || this.slugify(heading.textContent);
+                        heading.id = id; // Ensure all headings have an ID
+                        return {
+                            id: id,
+                            text: heading.textContent,
+                            level: parseInt(heading.tagName.substring(1)),
+                            element: heading
+                        };
+                    });
+
+                    const observer = new IntersectionObserver(entries => {
+                        entries.forEach(entry => {
+                            if (entry.isIntersecting) {
+                                this.activeId = entry.target.id;
+                            }
+                        });
+                    }, { rootMargin: '-10% 0% -80% 0%' });
+
+                    this.items.forEach(item => observer.observe(item.element));
+
+                    // Initial active item on load
+                    if (window.location.hash) {
+                        this.activeId = window.location.hash.substring(1);
+                    } else if (this.items.length > 0) {
+                        this.activeId = this.items[0].id;
+                    }
+                },
+
+                slugify(text) {
+                    return text.toLowerCase()
+                               .replace(/[^a-z0-9\s-]/g, '')
+                               .replace(/\s+/g, '-')
+                               .replace(/^-+|-+$/g, '');
+                },
+
+                scrollTo(id) {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                        this.activeId = id;
+                        // Update URL hash without triggering scroll
+                        history.replaceState(null, null, `#${id}`);
+                    }
+                }
+            }));
+        });
+    </script>
+
+</body>
+</html>

@@ -11,7 +11,7 @@ import os
 import threading
 import time
 
-from .models import RPATask, TaskLog, NewsArticle, DailyReport, NewsSource
+from .models import RPATask, TaskLog, NewsArticle, DailyReport, NewsSource, ProductCategory, ProductBrand, TrackedProduct, PriceHistory, DocSection
 from .rpa_runner import run_rpa_task
 from .tasks import scrape_all_news, generate_daily_report, send_daily_report
 
@@ -320,9 +320,9 @@ def news_dashboard(request):
     # รายงานล่าสุด
     latest_report = DailyReport.objects.filter(is_completed=True).first()
 
-    # ข่าววันนี้
+    # ข่าววันนี้ (ใช้ scraped_at เพื่อให้ได้ข่าวที่ scrape ในวันนี้)
     today = date.today()
-    today_articles = NewsArticle.objects.filter(published_at__date=today)
+    today_articles = NewsArticle.objects.filter(scraped_at__date=today)
 
     # สถิติตามหมวด - จัดกลุ่มตามประเภท
     stock_categories = [
@@ -467,7 +467,11 @@ def daily_reports(request):
 
 def daily_report_detail(request, slug):
     """หน้ารายละเอียดรายงานประจำวัน"""
-    report = get_object_or_404(DailyReport, slug=slug)
+    # Support both ID (numeric) and slug
+    if slug.isdigit():
+        report = get_object_or_404(DailyReport, id=int(slug))
+    else:
+        report = get_object_or_404(DailyReport, slug=slug)
 
     context = {
         "report": report,
@@ -477,28 +481,42 @@ def daily_report_detail(request, slug):
 
 
 def trigger_news_scrape(request):
-    """Trigger ดึงข้อมูลข่าวด้วยตัวเอง - แบบ Background"""
+    """Trigger ดึงข้อมูลข่าว + สร้างรายงาน + ส่ง Telegram ทันที"""
     if request.method == "POST":
         # ตรวจสอบว่ากำลัง scrape อยู่หรือไม่
         if cache.get('news_scraping_status') == 'running':
             messages.warning(request, "กำลังดึงข้อมูลข่าวอยู่แล้ว กรุณารอสักครู่...")
             return redirect("news_dashboard")
 
-        # เริ่ม scraping ใน background
+        # เริ่ม scraping + generate + send ใน background
         def run_scraping_in_background():
             try:
-                from .news_scraper import scrape_all_news_sources
+                from .ai_summarizer import AISummarizerService
+                from datetime import date
 
                 # ตั้งสถานะเป็น running
                 cache.set('news_scraping_status', 'running', 600)  # 10 minutes timeout
                 cache.set('news_scraping_progress', 0, 600)
 
-                # ดึงข้อมูล
-                result = scrape_all_news_sources()
+                # Step 1: ดึงข้อมูลข่าว
+                cache.set('news_scraping_progress', 10, 600)
+                scrape_result = scrape_all_news()  # ใช้ task แทน
+
+                # Step 2: สร้างรายงาน
+                cache.set('news_scraping_progress', 60, 600)
+                generate_result = generate_daily_report()
+
+                # Step 3: ส่ง Telegram
+                cache.set('news_scraping_progress', 80, 600)
+                send_result = send_daily_report()
 
                 # บันทึกผลลัพธ์
                 cache.set('news_scraping_status', 'completed', 600)
-                cache.set('news_scraping_result', result, 600)
+                cache.set('news_scraping_result', {
+                    'scrape': scrape_result,
+                    'generate': generate_result,
+                    'send': send_result
+                }, 600)
                 cache.set('news_scraping_progress', 100, 600)
 
             except Exception as e:
@@ -510,7 +528,7 @@ def trigger_news_scrape(request):
         thread.daemon = True
         thread.start()
 
-        messages.info(request, "เริ่มดึงข้อมูลข่าวแล้ว! กำลังประมวลผล...")
+        messages.info(request, "เริ่มดึงข้อมูลข่าวและส่งรายงานไปยัง Telegram แล้ว! กำลังประมวลผล...")
         return redirect("news_dashboard")
 
     return render(request, "rpa_bot/trigger_scrape.html")
@@ -548,7 +566,7 @@ def api_news_stats(request):
     from datetime import date, timedelta
 
     today = date.today()
-    today_articles = NewsArticle.objects.filter(published_at__date=today)
+    today_articles = NewsArticle.objects.filter(scraped_at__date=today)
 
     # สถิติตามหมวด
     categories = {}
@@ -710,3 +728,840 @@ def api_ai_agent_sentiment(request):
             "success": False,
             "error": str(e)
         }, status=400)
+
+
+# ========== E-Commerce Tracking Views ==========
+
+
+def ecommerce_dashboard(request):
+    """หน้า E-Commerce Dashboard"""
+    # สถิติ
+    total_tracked = TrackedProduct.objects.filter(is_active=True).count()
+    active_alerts = TrackedProduct.objects.filter(enable_price_alert=True, is_active=True).count()
+    categories_count = ProductCategory.objects.filter(is_active=True).count()
+    brands_count = ProductBrand.objects.filter(is_active=True).count()
+
+    # สินค้าที่ติดตาม (ล่าสุด 20 รายการ)
+    tracked_products = TrackedProduct.objects.filter(is_active=True).select_related(
+        'category', 'brand'
+    ).order_by('-created_at')[:20]
+
+    # Price alerts ที่กำลังทำงาน
+    price_alerts = TrackedProduct.objects.filter(
+        enable_price_alert=True,
+        is_active=True,
+        alert_sent=False
+    ).select_related('category', 'brand')[:10]
+
+    # สินค้าที่ราคาลดล่าสุด (Top 10)
+    recently_reduced = TrackedProduct.objects.filter(
+        is_active=True,
+        discount_percent__gt=0
+    ).select_related('category', 'brand').order_by('-discount_percent')[:10]
+
+    context = {
+        "stats": {
+            "total_tracked": total_tracked,
+            "active_alerts": active_alerts,
+            "categories_count": categories_count,
+            "brands_count": brands_count,
+        },
+        "tracked_products": tracked_products,
+        "price_alerts": price_alerts,
+        "recently_reduced": recently_reduced,
+    }
+
+    return render(request, "rpa_bot/ecommerce_dashboard.html", context)
+
+
+def ecommerce_categories(request):
+    """หน้าจัดการหมวดหมู่สินค้า"""
+    categories = ProductCategory.objects.all().order_by('name')
+
+    # Search
+    search_query = request.GET.get("search")
+    if search_query:
+        categories = categories.filter(name__icontains=search_query)
+
+    # Pagination
+    paginator = Paginator(categories, 20)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        "page_obj": page_obj,
+    }
+
+    return render(request, "rpa_bot/ecommerce_categories.html", context)
+
+
+def ecommerce_brands(request):
+    """หน้าจัดการแบรนด์"""
+    brands = ProductBrand.objects.all().order_by('name')
+
+    # Search
+    search_query = request.GET.get("search")
+    if search_query:
+        brands = brands.filter(name__icontains=search_query)
+
+    # Pagination
+    paginator = Paginator(brands, 20)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        "page_obj": page_obj,
+    }
+
+    return render(request, "rpa_bot/ecommerce_brands.html", context)
+
+
+def tracked_product_detail(request, pk):
+    """หน้ารายละเอียดสินค้าที่ติดตาม"""
+    product = get_object_or_404(TrackedProduct, pk=pk)
+
+    # ประวัติราคา (30 วันล่าสุด)
+    price_history = product.price_history.all()[:30]
+
+    # คำนวณสถิติ
+    if price_history:
+        prices = [float(h.price) for h in price_history]
+        avg_price = sum(prices) / len(prices)
+        price_change_30d = ((float(product.current_price) - prices[-1]) / prices[-1] * 100) if prices[-1] > 0 else 0
+    else:
+        avg_price = float(product.current_price) if product.current_price else 0
+        price_change_30d = 0
+
+    context = {
+        "product": product,
+        "price_history": price_history,
+        "avg_price": avg_price,
+        "price_change_30d": price_change_30d,
+    }
+
+    return render(request, "rpa_bot/tracked_product_detail.html", context)
+
+
+# ========== E-Commerce API Endpoints ==========
+
+
+@require_http_methods(["GET"])
+def api_ecommerce_categories(request):
+    """API: รายการหมวดหมู่สินค้า"""
+    categories = ProductCategory.objects.filter(is_active=True)
+
+    data = {
+        "success": True,
+        "categories": [
+            {
+                "id": cat.id,
+                "name": cat.name,
+                "slug": cat.slug,
+                "description": cat.description,
+                "keywords": cat.keywords,
+                "product_count": cat.tracked_products.filter(is_active=True).count(),
+            }
+            for cat in categories
+        ],
+        "count": categories.count(),
+    }
+
+    return JsonResponse(data)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_ecommerce_category_create(request):
+    """API: สร้างหมวดหมู่สินค้าใหม่"""
+    try:
+        data = json.loads(request.body)
+
+        category = ProductCategory.objects.create(
+            name=data.get("name"),
+            description=data.get("description", ""),
+            keywords=data.get("keywords", ""),
+        )
+
+        return JsonResponse({
+            "success": True,
+            "category": {
+                "id": category.id,
+                "name": category.name,
+                "slug": category.slug,
+            },
+            "message": "สร้างหมวดหมู่สำเร็จ"
+        })
+
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+@require_http_methods(["GET"])
+def api_ecommerce_brands(request):
+    """API: รายการแบรนด์"""
+    brands = ProductBrand.objects.filter(is_active=True)
+
+    data = {
+        "success": True,
+        "brands": [
+            {
+                "id": brand.id,
+                "name": brand.name,
+                "slug": brand.slug,
+                "logo_url": brand.logo_url,
+                "website": brand.website,
+                "product_count": brand.tracked_products.filter(is_active=True).count(),
+            }
+            for brand in brands
+        ],
+        "count": brands.count(),
+    }
+
+    return JsonResponse(data)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_ecommerce_brand_create(request):
+    """API: สร้างแบรนด์ใหม่"""
+    try:
+        data = json.loads(request.body)
+
+        brand = ProductBrand.objects.create(
+            name=data.get("name"),
+            logo_url=data.get("logo_url", ""),
+            website=data.get("website", ""),
+        )
+
+        return JsonResponse({
+            "success": True,
+            "brand": {
+                "id": brand.id,
+                "name": brand.name,
+                "slug": brand.slug,
+            },
+            "message": "สร้างแบรนด์สำเร็จ"
+        })
+
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+@require_http_methods(["GET"])
+def api_ecommerce_tracked_products(request):
+    """API: รายการสินค้าที่ติดตาม"""
+    products = TrackedProduct.objects.filter(is_active=True).select_related(
+        'category', 'brand'
+    )
+
+    # Filter by platform
+    platform = request.GET.get('platform')
+    if platform:
+        products = products.filter(platform=platform)
+
+    # Filter by category
+    category_id = request.GET.get('category')
+    if category_id:
+        products = products.filter(category_id=category_id)
+
+    # Filter by brand
+    brand_id = request.GET.get('brand')
+    if brand_id:
+        products = products.filter(brand_id=brand_id)
+
+    # Limit
+    limit = int(request.GET.get('limit', 50))
+    products = products[:limit]
+
+    data = {
+        "success": True,
+        "products": [
+            {
+                "id": p.id,
+                "platform": p.platform,
+                "title": p.title,
+                "product_url": p.product_url,
+                "current_price": float(p.current_price) if p.current_price else None,
+                "original_price": float(p.original_price) if p.original_price else None,
+                "discount_percent": float(p.discount_percent) if p.discount_percent else None,
+                "lowest_price": float(p.lowest_price) if p.lowest_price else None,
+                "highest_price": float(p.highest_price) if p.highest_price else None,
+                "image_url": p.image_url,
+                "rating": float(p.rating) if p.rating else None,
+                "reviews_count": p.reviews_count,
+                "sold_count": p.sold_count,
+                "category": p.category.name if p.category else None,
+                "brand": p.brand.name if p.brand else None,
+                "enable_price_alert": p.enable_price_alert,
+                "target_price": float(p.target_price) if p.target_price else None,
+                "is_available": p.is_available,
+                "last_checked_at": p.last_checked_at.isoformat() if p.last_checked_at else None,
+                "created_at": p.created_at.isoformat(),
+            }
+            for p in products
+        ],
+        "count": products.count(),
+    }
+
+    return JsonResponse(data)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_ecommerce_track_url(request):
+    """API: เพิ่มสินค้าจาก URL เพื่อติดตาม"""
+    try:
+        data = json.loads(request.body)
+        product_url = data.get("product_url")
+
+        if not product_url:
+            return JsonResponse({"success": False, "error": "กรุณาระบุ URL"}, status=400)
+
+        # Import ProductScraperService
+        from .product_scraper import ProductScraperService
+
+        scraper = ProductScraperService()
+
+        # ตรวจสอบ platform
+        platform = scraper.detect_platform(product_url)
+        if not platform:
+            return JsonResponse({
+                "success": False,
+                "error": "ไม่รองรับ URL นี้ กรุณาใช้ URL จาก Lazada, Shopee, TikTok, Taobao, Tmall, Pinduoduo, 1688, Alibaba, Amazon"
+            }, status=400)
+
+        # ดึงข้อมูล category และ brand (ถ้ามี)
+        category = None
+        if data.get("category_id"):
+            category = ProductCategory.objects.filter(id=data.get("category_id")).first()
+
+        brand = None
+        if data.get("brand_id"):
+            brand = ProductBrand.objects.filter(id=data.get("brand_id")).first()
+
+        user = request.user if request.user.is_authenticated else None
+
+        # สร้างหรืออัพเดท TrackedProduct
+        tracked_product = scraper.create_or_update_tracked_product(
+            product_url=product_url,
+            category=category,
+            brand=brand,
+            user=user
+        )
+
+        # ตั้งค่า price alert (ถ้ามี)
+        if data.get("enable_price_alert") and data.get("target_price"):
+            tracked_product.enable_price_alert = True
+            tracked_product.target_price = data.get("target_price")
+            tracked_product.alert_sent = False
+            tracked_product.save()
+
+        return JsonResponse({
+            "success": True,
+            "product": {
+                "id": tracked_product.id,
+                "platform": tracked_product.platform,
+                "title": tracked_product.title,
+                "current_price": float(tracked_product.current_price) if tracked_product.current_price else None,
+                "product_url": tracked_product.product_url,
+            },
+            "message": "เพิ่มสินค้าเรียบร้อยแล้ว"
+        })
+
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_ecommerce_update_prices(request):
+    """API: อัพเดทราคาสินค้าทั้งหมด"""
+    try:
+        from .product_scraper import ProductScraperService
+
+        # ตั้งสถานะเป็น running
+        if cache.get('ecommerce_update_status') == 'running':
+            return JsonResponse({
+                "success": False,
+                "message": "กำลังอัพเดทราคาอยู่แล้ว กรุณารอสักครู่..."
+            }, status=400)
+
+        # รันใน background thread
+        def run_update_in_background():
+            try:
+                cache.set('ecommerce_update_status', 'running', 600)
+                cache.set('ecommerce_update_progress', 0, 600)
+
+                scraper = ProductScraperService()
+                result = scraper.update_all_tracked_products()
+
+                cache.set('ecommerce_update_status', 'completed', 600)
+                cache.set('ecommerce_update_result', result, 600)
+                cache.set('ecommerce_update_progress', 100, 600)
+
+            except Exception as e:
+                cache.set('ecommerce_update_status', 'failed', 600)
+                cache.set('ecommerce_update_error', str(e), 600)
+
+        thread = threading.Thread(target=run_update_in_background)
+        thread.daemon = True
+        thread.start()
+
+        return JsonResponse({
+            "success": True,
+            "message": "เริ่มอัพเดทราคาสินค้าแล้ว"
+        })
+
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+@require_http_methods(["GET"])
+def api_ecommerce_update_status(request):
+    """API: ตรวจสอบสถานะการอัพเดทราคา"""
+    status = cache.get('ecommerce_update_status', 'idle')
+    progress = cache.get('ecommerce_update_progress', 0)
+    result = cache.get('ecommerce_update_result', {})
+    error = cache.get('ecommerce_update_error', None)
+
+    data = {
+        "status": status,  # 'idle', 'running', 'completed', 'failed'
+        "progress": progress,
+        "result": result if status == 'completed' else None,
+        "error": error if status == 'failed' else None,
+        "timestamp": timezone.now().isoformat()
+    }
+
+    return JsonResponse(data)
+
+
+@require_http_methods(["GET"])
+def api_ecommerce_price_history(request, product_id):
+    """API: ประวัติราคาของสินค้า"""
+    try:
+        product = TrackedProduct.objects.get(id=product_id)
+        history = product.price_history.all()[:100]  # 100 รายการล่าสุด
+
+        data = {
+            "success": True,
+            "product": {
+                "id": product.id,
+                "title": product.title,
+                "platform": product.platform,
+            },
+            "history": [
+                {
+                    "price": float(h.price),
+                    "original_price": float(h.original_price) if h.original_price else None,
+                    "discount_percent": float(h.discount_percent) if h.discount_percent else None,
+                    "stock_status": h.stock_status,
+                    "recorded_at": h.recorded_at.isoformat(),
+                }
+                for h in history
+            ],
+            "count": history.count(),
+        }
+
+        return JsonResponse(data)
+
+    except TrackedProduct.DoesNotExist:
+        return JsonResponse({"success": False, "error": "ไม่พบสินค้า"}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(["PUT", "PATCH"])
+def api_ecommerce_product_update(request, product_id):
+    """API: อัพเดทข้อมูลสินค้า"""
+    try:
+        product = TrackedProduct.objects.get(id=product_id)
+        data = json.loads(request.body)
+
+        # อัพเดทฟิลด์ที่อนุญาต
+        if "enable_price_alert" in data:
+            product.enable_price_alert = data["enable_price_alert"]
+        if "target_price" in data:
+            product.target_price = data["target_price"]
+        if "is_active" in data:
+            product.is_active = data["is_active"]
+        if "category_id" in data:
+            category = ProductCategory.objects.filter(id=data["category_id"]).first()
+            product.category = category
+        if "brand_id" in data:
+            brand = ProductBrand.objects.filter(id=data["brand_id"]).first()
+            product.brand = brand
+
+        product.save()
+
+        return JsonResponse({
+            "success": True,
+            "message": "อัพเดทสินค้าเรียบร้อยแล้ว",
+            "product": {
+                "id": product.id,
+                "title": product.title,
+                "enable_price_alert": product.enable_price_alert,
+                "target_price": float(product.target_price) if product.target_price else None,
+            }
+        })
+
+    except TrackedProduct.DoesNotExist:
+        return JsonResponse({"success": False, "error": "ไม่พบสินค้า"}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def api_ecommerce_product_delete(request, product_id):
+    """API: ลบสินค้าที่ติดตาม"""
+    try:
+        product = TrackedProduct.objects.get(id=product_id)
+        product_title = product.title
+        product.delete()
+
+        return JsonResponse({
+            "success": True,
+            "message": f"ลบสินค้า '{product_title}' เรียบร้อยแล้ว"
+        })
+
+    except TrackedProduct.DoesNotExist:
+        return JsonResponse({"success": False, "error": "ไม่พบสินค้า"}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+@require_http_methods(["GET"])
+def api_ecommerce_price_alerts(request):
+    """API: รายการสินค้าที่มี Price Alert ทำงานอยู่"""
+    alerts = TrackedProduct.objects.filter(
+        enable_price_alert=True,
+        is_active=True,
+        alert_sent=False
+    ).select_related('category', 'brand')
+
+    # กรองเฉพาะที่ราคาถึง target แล้ว
+    active_alerts = []
+    for product in alerts:
+        if product.target_price and product.current_price:
+            if product.current_price <= product.target_price:
+                active_alerts.append(product)
+
+    data = {
+        "success": True,
+        "alerts": [
+            {
+                "id": p.id,
+                "title": p.title,
+                "platform": p.platform,
+                "current_price": float(p.current_price),
+                "target_price": float(p.target_price),
+                "price_difference": float(p.target_price - p.current_price),
+                "discount_percent": float(p.discount_percent) if p.discount_percent else 0,
+                "product_url": p.product_url,
+                "image_url": p.image_url,
+                "created_at": p.created_at.isoformat(),
+            }
+            for p in active_alerts
+        ],
+        "count": len(active_alerts),
+    }
+
+    return JsonResponse(data)
+
+
+# ========== E-Commerce Bulk Scraping API Endpoints ==========
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_ecommerce_scrape_category(request):
+    """API: Scrape สินค้าตามหมวดหมู่ (Top 100)"""
+    try:
+        data = json.loads(request.body)
+        platform = data.get("platform")
+        category_id = data.get("category_id")
+        limit = data.get("limit", 100)
+
+        # Validate platform
+        valid_platforms = ["lazada", "shopee", "tiktok", "taobao", "tmall", "pinduoduo", "jd", "1688", "alibaba", "aliexpress", "amazon"]
+        if platform not in valid_platforms:
+            return JsonResponse({
+                "success": False,
+                "error": f"Invalid platform. Choose from: {', '.join(valid_platforms)}"
+            }, status=400)
+
+        # Get category
+        try:
+            category = ProductCategory.objects.get(id=category_id)
+        except ProductCategory.DoesNotExist:
+            return JsonResponse({
+                "success": False,
+                "error": "Category not found"
+            }, status=404)
+
+        # Check if scraping is already running
+        cache_key = f'bulk_scrape_category_{platform}_{category_id}'
+        if cache.get(cache_key) == 'running':
+            return JsonResponse({
+                "success": False,
+                "message": "Category scraping is already running for this platform/category"
+            }, status=400)
+
+        # Run scraping in background
+        def run_scraping_in_background():
+            try:
+                from .product_scraper import ProductScraperService
+
+                cache.set(cache_key, 'running', 600)
+                cache.set(f'{cache_key}_progress', 0, 600)
+
+                scraper = ProductScraperService()
+                products = scraper.scrape_category_products(
+                    platform=platform,
+                    category=category,
+                    limit=limit
+                )
+
+                cache.set(cache_key, 'completed', 600)
+                cache.set(f'{cache_key}_result', {
+                    'products_count': len(products),
+                    'platform': platform,
+                    'category': category.name
+                }, 600)
+                cache.set(f'{cache_key}_progress', 100, 600)
+
+            except Exception as e:
+                cache.set(cache_key, 'failed', 600)
+                cache.set(f'{cache_key}_error', str(e), 600)
+
+        thread = threading.Thread(target=run_scraping_in_background)
+        thread.daemon = True
+        thread.start()
+
+        return JsonResponse({
+            "success": True,
+            "message": f"Started scraping {category.name} products from {platform}",
+            "task_id": cache_key
+        })
+
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_ecommerce_scrape_brand(request):
+    """API: Scrape สินค้าตามแบรนด์ (Top 100)"""
+    try:
+        data = json.loads(request.body)
+        platform = data.get("platform")
+        brand_id = data.get("brand_id")
+        limit = data.get("limit", 100)
+
+        # Validate platform
+        valid_platforms = ["lazada", "shopee", "tiktok", "taobao", "tmall", "pinduoduo", "jd", "1688", "alibaba", "aliexpress", "amazon"]
+        if platform not in valid_platforms:
+            return JsonResponse({
+                "success": False,
+                "error": f"Invalid platform. Choose from: {', '.join(valid_platforms)}"
+            }, status=400)
+
+        # Get brand
+        try:
+            brand = ProductBrand.objects.get(id=brand_id)
+        except ProductBrand.DoesNotExist:
+            return JsonResponse({
+                "success": False,
+                "error": "Brand not found"
+            }, status=404)
+
+        # Check if scraping is already running
+        cache_key = f'bulk_scrape_brand_{platform}_{brand_id}'
+        if cache.get(cache_key) == 'running':
+            return JsonResponse({
+                "success": False,
+                "message": "Brand scraping is already running for this platform/brand"
+            }, status=400)
+
+        # Run scraping in background
+        def run_scraping_in_background():
+            try:
+                from .product_scraper import ProductScraperService
+
+                cache.set(cache_key, 'running', 600)
+                cache.set(f'{cache_key}_progress', 0, 600)
+
+                scraper = ProductScraperService()
+                products = scraper.scrape_brand_products(
+                    platform=platform,
+                    brand=brand,
+                    limit=limit
+                )
+
+                cache.set(cache_key, 'completed', 600)
+                cache.set(f'{cache_key}_result', {
+                    'products_count': len(products),
+                    'platform': platform,
+                    'brand': brand.name
+                }, 600)
+                cache.set(f'{cache_key}_progress', 100, 600)
+
+            except Exception as e:
+                cache.set(cache_key, 'failed', 600)
+                cache.set(f'{cache_key}_error', str(e), 600)
+
+        thread = threading.Thread(target=run_scraping_in_background)
+        thread.daemon = True
+        thread.start()
+
+        return JsonResponse({
+            "success": True,
+            "message": f"Started scraping {brand.name} products from {platform}",
+            "task_id": cache_key
+        })
+
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_ecommerce_scrape_bestsellers(request):
+    """API: Scrape สินค้าขายดี/ยอดนิยม (Top 100)"""
+    try:
+        data = json.loads(request.body)
+        platform = data.get("platform")
+        limit = data.get("limit", 100)
+
+        # Validate platform
+        valid_platforms = ["lazada", "shopee", "tiktok", "taobao", "tmall", "pinduoduo", "jd", "1688", "alibaba", "aliexpress", "amazon"]
+        if platform not in valid_platforms:
+            return JsonResponse({
+                "success": False,
+                "error": f"Invalid platform. Choose from: {', '.join(valid_platforms)}"
+            }, status=400)
+
+        # Check if scraping is already running
+        cache_key = f'bulk_scrape_bestsellers_{platform}'
+        if cache.get(cache_key) == 'running':
+            return JsonResponse({
+                "success": False,
+                "message": "Best-sellers scraping is already running for this platform"
+            }, status=400)
+
+        # Run scraping in background
+        def run_scraping_in_background():
+            try:
+                from .product_scraper import ProductScraperService
+
+                cache.set(cache_key, 'running', 600)
+                cache.set(f'{cache_key}_progress', 0, 600)
+
+                scraper = ProductScraperService()
+                products = scraper.scrape_best_selling(
+                    platform=platform,
+                    limit=limit
+                )
+
+                cache.set(cache_key, 'completed', 600)
+                cache.set(f'{cache_key}_result', {
+                    'products_count': len(products),
+                    'platform': platform
+                }, 600)
+                cache.set(f'{cache_key}_progress', 100, 600)
+
+            except Exception as e:
+                cache.set(cache_key, 'failed', 600)
+                cache.set(f'{cache_key}_error', str(e), 600)
+
+        thread = threading.Thread(target=run_scraping_in_background)
+        thread.daemon = True
+        thread.start()
+
+        return JsonResponse({
+            "success": True,
+            "message": f"Started scraping best-selling products from {platform}",
+            "task_id": cache_key
+        })
+
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+@require_http_methods(["GET"])
+def api_ecommerce_bulk_scrape_status(request):
+    """API: ตรวจสอบสถานะการ Bulk Scrape"""
+    task_id = request.GET.get('task_id')
+
+    if not task_id:
+        return JsonResponse({
+            "success": False,
+            "error": "task_id is required"
+        }, status=400)
+
+    status = cache.get(task_id, 'idle')
+    progress = cache.get(f'{task_id}_progress', 0)
+    result = cache.get(f'{task_id}_result', {})
+    error = cache.get(f'{task_id}_error', None)
+
+    data = {
+        "success": True,
+        "task_id": task_id,
+        "status": status,  # 'idle', 'running', 'completed', 'failed'
+        "progress": progress,
+        "result": result if status == 'completed' else None,
+        "error": error if status == 'failed' else None,
+        "timestamp": timezone.now().isoformat()
+    }
+
+    return JsonResponse(data)
+
+
+# ========== Documentation Views ==========
+
+
+def docs_home(request):
+    """หน้า Documentation หลัก"""
+    return redirect('docs_section', section='overview')
+
+
+def docs_section(request, section):
+    """หน้า Documentation แต่ละส่วน - ใช้ข้อมูลจากฐานข้อมูล"""
+    # ดึงข้อมูลจากฐานข้อมูล
+    all_sections = DocSection.objects.filter(is_active=True).order_by('group', 'order', 'title')
+
+    # จัดกลุ่ม sections ตาม group
+    grouped_sections = {}
+    for group_code, group_name in DocSection.SECTION_GROUP_CHOICES:
+        sections_in_group = all_sections.filter(group=group_code)
+        if sections_in_group.exists():
+            grouped_sections[group_code] = {
+                'name': group_name,
+                'sections': sections_in_group
+            }
+
+    # หา section ปัจจุบัน พร้อม prefetch content blocks
+    try:
+        current_section = DocSection.objects.prefetch_related('content_blocks').get(slug=section, is_active=True)
+    except DocSection.DoesNotExist:
+        # ถ้าไม่เจอ redirect ไป overview หรือ section แรก
+        first_section = all_sections.first()
+        if first_section:
+            return redirect('docs_section', section=first_section.slug)
+        else:
+            # ถ้าไม่มี section เลย แสดง error
+            messages.error(request, "ยังไม่มีเอกสารในระบบ กรุณาเพิ่มเอกสารผ่าน Admin Panel")
+            return redirect('dashboard')
+
+    # ดึง content blocks ที่เปิดใช้งาน
+    content_blocks = current_section.content_blocks.filter(is_active=True).order_by('order')
+
+    context = {
+        'grouped_sections': grouped_sections,
+        'current_section': current_section,
+        'current_section_key': section,
+        'content_blocks': content_blocks,
+    }
+
+    return render(request, 'rpa_bot/docs/doc_template.html', context)

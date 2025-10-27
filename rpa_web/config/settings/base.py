@@ -4,9 +4,15 @@ Django base settings for RPA Web project.
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+# Load environment variables from .env.dev
+# This makes them available to the Django application
+dotenv_path = BASE_DIR / '.env.dev'
+load_dotenv(dotenv_path=dotenv_path)
 
 
 # Application definition
@@ -18,6 +24,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Third-party apps
+    'django_summernote',
 
     # Local apps
     'rpa_bot',
@@ -97,6 +106,42 @@ STATICFILES_DIRS = [
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# Summernote Configuration
+SUMMERNOTE_CONFIG = {
+    'summernote': {
+        'toolbar': [
+            ['style', ['style']],
+            ['font', ['bold', 'italic', 'underline', 'clear']],
+            ['fontname', ['fontname']],
+            ['fontsize', ['fontsize']],
+            ['color', ['color']],
+            ['para', ['ul', 'ol', 'paragraph']],
+            ['height', ['height']],
+            ['table', ['table']],
+            ['insert', ['link', 'picture', 'video']],
+            ['view', ['fullscreen', 'codeview', 'help']],
+            ['mybutton', ['codeBlock']],  # Custom code block button
+        ],
+        'width': '100%',
+        'height': '480',
+        'codemirror': {
+            'mode': 'python',
+            'lineNumbers': True,
+            'theme': 'monokai',
+        },
+        'codeviewFilter': False,
+        'codeviewIframeFilter': True,
+    },
+    'attachment_filesize_limit': 1024 * 1024 * 10,  # 10MB
+    'attachment_require_authentication': True,
+    'disable_attachment': False,
+    'lazy': True,
+}
+
+# X Frame Options for Summernote
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 
 # Default primary key field type
@@ -185,17 +230,31 @@ CELERY_RESULT_SERIALIZER = 'json'
 from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
-    'daily-news-intelligence-10am': {
-        'task': 'rpa_bot.tasks.daily_news_intelligence',
-        'schedule': crontab(hour=10, minute=0),  # ทุกวันเวลา 10:00 น.
+    # Task 1: Scrape ข่าวอัตโนมัติทุก 10 นาที ทุกวัน
+    'hourly-scrape-news': {
+        'task': 'rpa_bot.tasks.scrape_all_news',
+        'schedule': crontab(minute='*/10'),  # ทุกๆ 10 นาที
         'options': {
-            'expires': 3600,  # Expire after 1 hour if not executed
+            'expires': 600,  # Expire after 10 minutes if not executed
         }
     },
-    'scrape-news-morning': {
-        'task': 'rpa_bot.tasks.scrape_all_news',
-        'schedule': crontab(hour=9, minute=30),  # ดึงข่าวเวลา 09:30 น.
+    # Task 2: สร้างรายงานทุก 10 นาที (หลัง scrape 3 นาที)
+    'hourly-generate-report': {
+        'task': 'rpa_bot.tasks.generate_daily_report',
+        'schedule': crontab(minute='3-59/10'),  # นาทีที่ 3, 13, 23, 33, 43, 53
+        'options': {
+            'expires': 600,
+        }
     },
+    # Task 3: ส่งรายงานไปยัง Telegram ทุก 10 นาที (หลัง generate 2 นาที)
+    'hourly-send-telegram-report': {
+        'task': 'rpa_bot.tasks.send_daily_report',
+        'schedule': crontab(minute='5-59/10'),  # นาทีที่ 5, 15, 25, 35, 45, 55
+        'options': {
+            'expires': 600,
+        }
+    },
+    # Weekly cleanup
     'cleanup-old-articles-weekly': {
         'task': 'rpa_bot.tasks.cleanup_old_articles',
         'schedule': crontab(hour=2, minute=0, day_of_week=0),  # ทุกวันอาทิตย์ เวลา 02:00 น.
