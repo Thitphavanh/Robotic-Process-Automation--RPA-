@@ -5,6 +5,8 @@ from datetime import datetime, date
 from django.utils import timezone
 from .models import NewsArticle, DailyReport
 import os
+import requests
+import html
 
 
 class AISummarizerService:
@@ -67,12 +69,12 @@ class AISummarizerService:
                 report_date=report_date
             )
 
-            # ดึงบทความของวันนี้
+            # ดึงบทความที่ scrape ในวันนี้ (ใช้ scraped_at แทน published_at เพื่อให้ได้ข่าวล่าสุด)
             today_start = timezone.make_aware(datetime.combine(report_date, datetime.min.time()))
             today_end = timezone.make_aware(datetime.combine(report_date, datetime.max.time()))
 
             articles = NewsArticle.objects.filter(
-                published_at__range=(today_start, today_end)
+                scraped_at__range=(today_start, today_end)
             )
 
             # แยกบทความตามหมวด
@@ -84,6 +86,9 @@ class AISummarizerService:
             gold_articles = articles.filter(source__category='gold')
             tech_articles = articles.filter(source__category__in=['tech_ai', 'tech_hardware', 'tech_software'])
             football_articles = articles.filter(source__category='football')
+            ev_car_articles = articles.filter(source__category='ev_car')
+            rocket_space_articles = articles.filter(source__category='rocket_space')
+            ecommerce_articles = articles.filter(source__category='e_commerce')
 
             # สรุปแต่ละหมวด
             report.stock_thai_summary = self._summarize_category(
@@ -126,6 +131,21 @@ class AISummarizerService:
                 'ข่าว Football'
             )
 
+            report.ev_car_summary = self._summarize_category(
+                ev_car_articles,
+                'ข่าว EV Car'
+            )
+
+            report.rocket_space_summary = self._summarize_category(
+                rocket_space_articles,
+                'ข่าว Rocket & Space'
+            )
+
+            report.e_commerce_summary = self._summarize_category(
+                ecommerce_articles,
+                'E-Commerce Deals'
+            )
+
             # สร้างรายงานเต็ม
             report.full_report = self._generate_full_report(report)
 
@@ -148,10 +168,9 @@ class AISummarizerService:
 
         summary_parts = [f"📊 {category_name} - วันที่ {date.today().strftime('%d/%m/%Y')}\n"]
 
-        # Ensure articles are ordered by published_at descending to get the latest
-        # and take up to 10 as requested by the user for specific categories.
-        # For other categories, it will still take up to 10.
-        articles_to_summarize = articles.order_by('-published_at')[:10]
+        # Sort by scraped_at (newest first) to get the latest news
+        # Take up to 10 articles per category
+        articles_to_summarize = articles.order_by('-scraped_at')[:10]
 
         for article in articles_to_summarize:
             summary_parts.append(f"• {article.title}")
@@ -209,33 +228,77 @@ class AISummarizerService:
 
 {'='*80}
 
+{report.ev_car_summary or ''}
+
+{'='*80}
+
+{report.rocket_space_summary or ''}
+
+{'='*80}
+
+{report.e_commerce_summary or ''}
+
+{'='*80}
+
 🤖 รายงานนี้สร้างโดย RPA Bot Manager
 สร้างเมื่อ: {timezone.now().strftime('%d/%m/%Y %H:%M:%S')}
 """
 
         return full_report.strip()
 
+    def _send_telegram_message(self, token, chat_id, message):
+        """Helper function to send a message to Telegram, using HTML for better formatting."""
+        max_length = 4000  # Reduced for safety margin
+
+        # Escape HTML characters in the original message
+        escaped_message = html.escape(message)
+
+        message_chunks = [escaped_message[i:i + max_length] for i in range(0, len(escaped_message), max_length)]
+
+        for chunk in message_chunks:
+            # Wrap each chunk in <pre> tags
+            formatted_chunk = f"<pre>{chunk}</pre>"
+
+            telegram_url = f"https://api.telegram.org/bot{token}/sendMessage"
+            payload = {
+                "chat_id": chat_id,
+                "text": formatted_chunk,
+                "parse_mode": "HTML"
+            }
+            try:
+                response = requests.post(telegram_url, json=payload)
+                response.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                print(f"เกิดข้อผิดพลาดในการส่งข้อความ Telegram: {e}")
+                return False
+        return True
+
     def send_report(self, report):
-        """ส่งรายงาน (Email, LINE, Telegram)"""
-        # TODO: เชื่อมต่อกับระบบส่งรายงาน
+        """ส่งรายงานผ่าน Telegram"""
+        BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+        CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+
+        if not BOT_TOKEN or not CHAT_ID:
+            print("❌ Error: TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set in environment variables.")
+            return False
 
         try:
-            # ตัวอย่าง: พิมพ์รายงาน
-            print("="*80)
-            print("📨 ส่งรายงานประจำวัน")
-            print("="*80)
-            print(report.full_report)
-            print("="*80)
+            print(f"📨 Sending daily report to Telegram Chat ID: {CHAT_ID}...")
+            
+            success = self._send_telegram_message(BOT_TOKEN, CHAT_ID, report.full_report)
 
-            # บันทึกว่าส่งแล้ว
-            report.is_sent = True
-            report.sent_at = timezone.now()
-            report.save()
-
-            return True
+            if success:
+                print("✅ Daily report sent successfully via Telegram.")
+                report.is_sent = True
+                report.sent_at = timezone.now()
+                report.save()
+                return True
+            else:
+                print("❌ Failed to send daily report via Telegram.")
+                return False
 
         except Exception as e:
-            print(f"Error sending report: {e}")
+            print(f"Error sending report via Telegram: {e}")
             return False
 
     def summarize_with_ai(self, text, max_length=200):

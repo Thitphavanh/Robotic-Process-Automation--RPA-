@@ -1,5 +1,5 @@
 # Django
-Django>=5.0,<5.1
+Django==5.0.6
 psycopg2-binary>=2.9.7
 python-dotenv>=1.0.0
 
@@ -11,6 +11,7 @@ pyperclip>=1.8.2
 beautifulsoup4>=4.12.2
 requests>=2.31.0
 lxml>=4.9.3
+yfinance>=0.2.28
 
 # Celery for background tasks
 celery>=5.3.4
@@ -32,3 +33,10 @@ sentry-sdk>=1.38.0
 # API (if needed)
 djangorestframework>=3.14.0
 django-cors-headers>=4.3.1
+
+# AI Providers
+anthropic>=0.25.0
+google-generativeai>=0.3.0
+markdown2
+django-summernote
+bleach==4.1.0

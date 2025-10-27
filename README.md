@@ -14,8 +14,24 @@ A Django-based Robotic Process Automation (RPA) system with news scraping and AI
 
 ### Prerequisites
 
+### สามารถใช้คำสั่งนี้ได้:
+
+docker compose exec web python manage.py send_report_now
+
 - Docker installed on your system
 - Docker Compose (comes with Docker Desktop)
+
+### The Easiest Fix: Clean Up Docker
+
+docker compose down
+
+docker system prune -a
+
+docker compose up
+
+### What if That Doesn't Work? (A More Targeted Fix)
+
+docker network prune
 
 ### Quick Start
 

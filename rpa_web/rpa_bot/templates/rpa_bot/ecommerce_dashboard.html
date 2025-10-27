@@ -1,0 +1,848 @@
+{% extends "rpa_bot/base.html" %}
+
+{% block title %}E-Commerce Price Tracking - RPA Bot Manager{% endblock %}
+
+{% block content %}
+<div x-data="ecommerceDashboard()" x-init="init()">
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h1 class="text-4xl font-bold text-gray-900 mb-2">
+            <i class="fas fa-shopping-cart text-purple-600"></i>
+            E-Commerce Price Tracking
+        </h1>
+        <p class="text-gray-600">ติดตามราคาสินค้าจาก 11 แพลตฟอร์ม E-Commerce (Lazada, Shopee, TikTok, Taobao, Tmall, Pinduoduo, JD.com, 1688, Alibaba, AliExpress, Amazon)</p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Total Tracked -->
+        <div class="bg-white rounded-xl shadow-lg p-6 card-hover">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-500 text-sm font-medium">สินค้าที่ติดตาม</p>
+                    <p class="text-3xl font-bold text-gray-900 mt-2">{{ stats.total_tracked }}</p>
+                </div>
+                <div class="bg-blue-100 p-4 rounded-lg">
+                    <i class="fas fa-box text-blue-600 text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Alerts -->
+        <div class="bg-white rounded-xl shadow-lg p-6 card-hover">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-500 text-sm font-medium">Price Alerts</p>
+                    <p class="text-3xl font-bold text-orange-600 mt-2">{{ stats.active_alerts }}</p>
+                </div>
+                <div class="bg-orange-100 p-4 rounded-lg">
+                    <i class="fas fa-bell text-orange-600 text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Categories -->
+        <div class="bg-white rounded-xl shadow-lg p-6 card-hover">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-500 text-sm font-medium">หมวดหมู่</p>
+                    <p class="text-3xl font-bold text-green-600 mt-2">{{ stats.categories_count }}</p>
+                </div>
+                <div class="bg-green-100 p-4 rounded-lg">
+                    <i class="fas fa-th-large text-green-600 text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Brands -->
+        <div class="bg-white rounded-xl shadow-lg p-6 card-hover">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-500 text-sm font-medium">แบรนด์</p>
+                    <p class="text-3xl font-bold text-purple-600 mt-2">{{ stats.brands_count }}</p>
+                </div>
+                <div class="bg-purple-100 p-4 rounded-lg">
+                    <i class="fas fa-tag text-purple-600 text-2xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">
+            <i class="fas fa-bolt text-yellow-500 mr-2"></i>Quick Actions
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Track Product URL -->
+            <div class="space-y-2">
+                <input type="url"
+                       x-model="productUrl"
+                       placeholder="วาง URL สินค้าที่ต้องการติดตาม..."
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                <select x-model="urlCategoryId" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                    <option value="">เลือกหมวดหมู่ (ถ้ามี)</option>
+                    <template x-for="cat in categories" :key="cat.id">
+                        <option :value="cat.id" x-text="cat.name"></option>
+                    </template>
+                </select>
+                <select x-model="urlBrandId" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                    <option value="">เลือกแบรนด์ (ถ้ามี)</option>
+                    <template x-for="brand in brands" :key="brand.id">
+                        <option :value="brand.id" x-text="brand.name"></option>
+                    </template>
+                </select>
+                <button @click="trackUrl()"
+                        :disabled="!productUrl || isTracking"
+                        class="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-plus-circle mr-2"></i>
+                    <span x-text="isTracking ? 'กำลังเพิ่ม...' : 'เพิ่มสินค้า'"></span>
+                </button>
+            </div>
+
+            <!-- Add Category & Brand -->
+            <div class="space-y-4">
+                <div>
+                    <input type="text" x-model="newCategoryName" placeholder="ชื่อหมวดหมู่ใหม่..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600">
+                    <button @click="addCategory()" :disabled="!newCategoryName || isAddingCategory" class="mt-2 w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50">
+                        <i class="fas fa-plus mr-2"></i><span x-text="isAddingCategory ? 'กำลังเพิ่ม...' : 'เพิ่มหมวดหมู่'"></span>
+                    </button>
+                </div>
+                <div>
+                    <input type="text" x-model="newBrandName" placeholder="ชื่อแบรนด์ใหม่..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-600">
+                    <button @click="addBrand()" :disabled="!newBrandName || isAddingBrand" class="mt-2 w-full bg-pink-600 text-white px-4 py-2 rounded-lg hover:bg-pink-700 disabled:opacity-50">
+                        <i class="fas fa-plus mr-2"></i><span x-text="isAddingBrand ? 'กำลังเพิ่ม...' : 'เพิ่มแบรนด์'"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Update All Prices -->
+            <div class="flex flex-col justify-center space-y-4">
+                 <button @click="updateAllPrices()"
+                        :disabled="isUpdating"
+                        class="w-full bg-gradient-to-r from-green-600 to-teal-600 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-teal-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-sync-alt mr-2" :class="{'fa-spin': isUpdating}"></i>
+                    <span x-text="isUpdating ? 'กำลังอัพเดท...' : 'อัพเดทราคาทั้งหมด'"></span>
+                </button>
+                 <a href="{% url 'ecommerce_categories' %}"
+                   class="bg-orange-500 text-white px-4 py-3 rounded-lg hover:bg-orange-600 transition text-center">
+                    <i class="fas fa-cogs mr-2"></i>จัดการหมวดหมู่ & แบรนด์
+                </a>
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div x-show="statusMessage" x-transition class="mt-4 p-4 rounded-lg" :class="statusType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
+            <span x-text="statusMessage"></span>
+        </div>
+    </div>
+
+    <!-- Bulk Scraping Section -->
+    <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl shadow-lg p-6 mb-8 border-2 border-indigo-300">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">
+            <i class="fas fa-robot text-indigo-600 mr-2"></i>
+            Bulk Scraping (เพิ่มสินค้าจำนวนมาก)
+        </h2>
+        <p class="text-gray-600 mb-4">ดึงข้อมูลสินค้าจาก E-Commerce แบบ Bulk ได้สูงสุด 100 รายการต่อครั้ง</p>
+
+        <!-- Tabs -->
+        <div class="flex space-x-2 mb-4 border-b border-gray-300">
+            <button @click="bulkScrapeTab = 'category'"
+                    :class="bulkScrapeTab === 'category' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                    class="px-4 py-2 border-b-2 font-medium transition">
+                <i class="fas fa-th-large mr-2"></i>ตามหมวดหมู่
+            </button>
+            <button @click="bulkScrapeTab = 'brand'"
+                    :class="bulkScrapeTab === 'brand' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                    class="px-4 py-2 border-b-2 font-medium transition">
+                <i class="fas fa-tag mr-2"></i>ตามแบรนด์
+            </button>
+            <button @click="bulkScrapeTab = 'bestsellers'"
+                    :class="bulkScrapeTab === 'bestsellers' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                    class="px-4 py-2 border-b-2 font-medium transition">
+                <i class="fas fa-fire mr-2"></i>สินค้าขายดี
+            </button>
+        </div>
+
+        <!-- Category Scraping -->
+        <div x-show="bulkScrapeTab === 'category'" x-transition>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">แพลตฟอร์ม</label>
+                    <select x-model="categoryPlatform" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent">
+                        <option value="lazada">Lazada</option>
+                        <option value="shopee">Shopee</option>
+                        <option value="tiktok">TikTok Shop</option>
+                        <option value="taobao">Taobao</option>
+                        <option value="tmall">Tmall</option>
+                        <option value="pinduoduo">Pinduoduo</option>
+                        <option value="jd">JD.com</option>
+                        <option value="1688">1688.com</option>
+                        <option value="alibaba">Alibaba.com</option>
+                        <option value="aliexpress">AliExpress</option>
+                        <option value="amazon">Amazon</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">หมวดหมู่</label>
+                    <select x-model="categoryId" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent">
+                        <option value="">เลือกหมวดหมู่...</option>
+                        <template x-for="cat in categories" :key="cat.id">
+                            <option :value="cat.id" x-text="cat.name"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">จำนวน</label>
+                    <input type="number" x-model="categoryLimit" min="10" max="100" step="10" value="50"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent">
+                </div>
+            </div>
+            <button @click="scrapeByCategory()"
+                    :disabled="!categoryPlatform || !categoryId || isBulkScraping"
+                    class="mt-4 w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fas fa-sync-alt mr-2" :class="{'fa-spin': isBulkScraping}"></i>
+                <span x-text="isBulkScraping ? 'กำลัง Scrape...' : 'Scrape สินค้าตามหมวดหมู่'"></span>
+            </button>
+        </div>
+
+        <!-- Brand Scraping -->
+        <div x-show="bulkScrapeTab === 'brand'" x-transition>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">แพลตฟอร์ม</label>
+                    <select x-model="brandPlatform" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent">
+                        <option value="lazada">Lazada</option>
+                        <option value="shopee">Shopee</option>
+                        <option value="tiktok">TikTok Shop</option>
+                        <option value="taobao">Taobao</option>
+                        <option value="tmall">Tmall</option>
+                        <option value="pinduoduo">Pinduoduo</option>
+                        <option value="jd">JD.com</option>
+                        <option value="1688">1688.com</option>
+                        <option value="alibaba">Alibaba.com</option>
+                        <option value="aliexpress">AliExpress</option>
+                        <option value="amazon">Amazon</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">แบรนด์</label>
+                    <select x-model="brandId" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent">
+                        <option value="">เลือกแบรนด์...</option>
+                        <template x-for="brand in brands" :key="brand.id">
+                            <option :value="brand.id" x-text="brand.name"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">จำนวน</label>
+                    <input type="number" x-model="brandLimit" min="10" max="100" step="10" value="50"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent">
+                </div>
+            </div>
+            <button @click="scrapeByBrand()"
+                    :disabled="!brandPlatform || !brandId || isBulkScraping"
+                    class="mt-4 w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fas fa-sync-alt mr-2" :class="{'fa-spin': isBulkScraping}"></i>
+                <span x-text="isBulkScraping ? 'กำลัง Scrape...' : 'Scrape สินค้าตามแบรนด์'"></span>
+            </button>
+        </div>
+
+        <!-- Best Sellers Scraping -->
+        <div x-show="bulkScrapeTab === 'bestsellers'" x-transition>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">แพลตฟอร์ม</label>
+                    <select x-model="bestsellersPlatform" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent">
+                        <option value="lazada">Lazada</option>
+                        <option value="shopee">Shopee</option>
+                        <option value="tiktok">TikTok Shop</option>
+                        <option value="taobao">Taobao</option>
+                        <option value="tmall">Tmall</option>
+                        <option value="pinduoduo">Pinduoduo</option>
+                        <option value="jd">JD.com</option>
+                        <option value="1688">1688.com</option>
+                        <option value="alibaba">Alibaba.com</option>
+                        <option value="aliexpress">AliExpress</option>
+                        <option value="amazon">Amazon</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">จำนวน</label>
+                    <input type="number" x-model="bestsellersLimit" min="10" max="100" step="10" value="50"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent">
+                </div>
+            </div>
+            <button @click="scrapeBestsellers()"
+                    :disabled="!bestsellersPlatform || isBulkScraping"
+                    class="mt-4 w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fas fa-sync-alt mr-2" :class="{'fa-spin': isBulkScraping}"></i>
+                <span x-text="isBulkScraping ? 'กำลัง Scrape...' : 'Scrape สินค้าขายดี'"></span>
+            </button>
+        </div>
+
+        <!-- Bulk Scraping Status -->
+        <div x-show="bulkScrapeStatus" x-transition class="mt-4 p-4 rounded-lg" :class="bulkScrapeType === 'success' ? 'bg-green-100 text-green-800' : (bulkScrapeType === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800')">
+            <span x-text="bulkScrapeStatus"></span>
+        </div>
+    </div>
+
+    <!-- Price Alerts -->
+    {% if price_alerts %}
+    <div class="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl shadow-lg p-6 mb-8 border-2 border-orange-300">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">
+            <i class="fas fa-bell-slash text-orange-600 mr-2 animate-pulse"></i>
+            Price Alerts ที่ใกล้ถึงเป้าหมาย
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for product in price_alerts %}
+            <div class="bg-white rounded-lg p-4 shadow hover:shadow-lg transition">
+                <div class="flex items-start space-x-4">
+                    {% if product.image_url %}
+                    <img src="{{ product.image_url }}" alt="{{ product.title }}" class="w-20 h-20 object-cover rounded-lg">
+                    {% else %}
+                    <div class="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-image text-gray-400 text-2xl"></i>
+                    </div>
+                    {% endif %}
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-semibold text-gray-900 truncate">{{ product.title }}</h3>
+                        <p class="text-sm text-gray-500">{{ product.get_platform_display }}</p>
+                        <div class="mt-2 flex items-center space-x-4">
+                            <div>
+                                <p class="text-xs text-gray-500">ราคาปัจจุบัน</p>
+                                <p class="text-lg font-bold text-green-600">฿{{ product.current_price|floatformat:2 }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">เป้าหมาย</p>
+                                <p class="text-lg font-bold text-orange-600">฿{{ product.target_price|floatformat:2 }}</p>
+                            </div>
+                        </div>
+                        <a href="{% url 'tracked_product_detail' product.id %}" class="text-blue-600 hover:text-blue-800 text-sm mt-2 inline-block">
+                            ดูรายละเอียด <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recently Reduced Prices -->
+    {% if recently_reduced %}
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">
+            <i class="fas fa-fire text-red-600 mr-2"></i>
+            สินค้าที่ลดราคามากที่สุด
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for product in recently_reduced %}
+            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition">
+                {% if product.image_url %}
+                <img src="{{ product.image_url }}" alt="{{ product.title }}" class="w-full h-48 object-cover rounded-lg mb-3">
+                {% else %}
+                <div class="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center mb-3">
+                    <i class="fas fa-image text-gray-400 text-4xl"></i>
+                </div>
+                {% endif %}
+                <h3 class="font-semibold text-gray-900 truncate mb-2">{{ product.title }}</h3>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-gray-500">{{ product.get_platform_display }}</span>
+                    <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-bold">
+                        -{{ product.discount_percent|floatformat:0 }}%
+                    </span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-lg font-bold text-green-600">฿{{ product.current_price|floatformat:2 }}</p>
+                        {% if product.original_price %}
+                        <p class="text-sm text-gray-500 line-through">฿{{ product.original_price|floatformat:2 }}</p>
+                        {% endif %}
+                    </div>
+                    <a href="{% url 'tracked_product_detail' product.id %}" class="bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 text-sm">
+                        ดูรายละเอียด
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tracked Products List -->
+    <div class="bg-white rounded-xl shadow-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">
+            <i class="fas fa-list text-blue-600 mr-2"></i>
+            สินค้าที่ติดตามทั้งหมด
+        </h2>
+
+        {% if tracked_products %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สินค้า</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">แพลตฟอร์ม</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ราคา</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ส่วนลด</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จัดการ</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for product in tracked_products %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                {% if product.image_url %}
+                                <img src="{{ product.image_url }}" alt="{{ product.title }}" class="w-12 h-12 object-cover rounded-lg mr-3">
+                                {% endif %}
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">{{ product.title|truncatewords:8 }}</div>
+                                    {% if product.category %}
+                                    <div class="text-sm text-gray-500">{{ product.category.name }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                {{ product.get_platform_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-bold text-green-600">฿{{ product.current_price|floatformat:2 }}</div>
+                            {% if product.original_price and product.original_price != product.current_price %}
+                            <div class="text-sm text-gray-500 line-through">฿{{ product.original_price|floatformat:2 }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if product.discount_percent %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                -{{ product.discount_percent|floatformat:0 }}%
+                            </span>
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if product.enable_price_alert %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+                                <i class="fas fa-bell mr-1"></i> Alert ON
+                            </span>
+                            {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                ติดตามปกติ
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <a href="{% url 'tracked_product_detail' product.id %}" class="text-blue-600 hover:text-blue-900 mr-3">
+                                <i class="fas fa-eye"></i> ดู
+                            </a>
+                            <a href="{{ product.product_url }}" target="_blank" class="text-green-600 hover:text-green-900">
+                                <i class="fas fa-external-link-alt"></i> ไปที่สินค้า
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <i class="fas fa-box-open text-gray-400 text-6xl mb-4"></i>
+            <p class="text-gray-500 text-lg">ยังไม่มีสินค้าที่ติดตาม</p>
+            <p class="text-gray-400 text-sm">เริ่มเพิ่มสินค้าโดยวาง URL ด้านบน</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function ecommerceDashboard() {
+    return {
+        productUrl: '',
+        urlCategoryId: '',
+        urlBrandId: '',
+        isTracking: false,
+        isUpdating: false,
+        statusMessage: '',
+        statusType: 'success',
+
+        // Add Category/Brand
+        newCategoryName: '',
+        newBrandName: '',
+        isAddingCategory: false,
+        isAddingBrand: false,
+
+        // Bulk scraping
+        bulkScrapeTab: 'category',
+        isBulkScraping: false,
+        bulkScrapeStatus: '',
+        bulkScrapeType: 'info',
+        bulkTaskId: '',
+
+        // Category scraping
+        categoryPlatform: 'lazada',
+        categoryId: '',
+        categoryLimit: 50,
+        categories: [],
+
+        // Brand scraping
+        brandPlatform: 'lazada',
+        brandId: '',
+        brandLimit: 50,
+        brands: [],
+
+        // Bestsellers scraping
+        bestsellersPlatform: 'lazada',
+        bestsellersLimit: 50,
+
+        async init() {
+            console.log('E-Commerce Dashboard initialized');
+            await this.loadCategories();
+            await this.loadBrands();
+        },
+
+        async loadCategories() {
+            try {
+                const response = await fetch('/api/ecommerce/categories/');
+                const data = await response.json();
+                if (data.success) {
+                    this.categories = data.categories;
+                }
+            } catch (error) {
+                console.error('Error loading categories:', error);
+            }
+        },
+
+        async loadBrands() {
+            try {
+                const response = await fetch('/api/ecommerce/brands/');
+                const data = await response.json();
+                if (data.success) {
+                    this.brands = data.brands;
+                }
+            } catch (error) {
+                console.error('Error loading brands:', error);
+            }
+        },
+
+        async trackUrl() {
+            if (!this.productUrl) return;
+
+            this.isTracking = true;
+            this.statusMessage = '';
+
+            try {
+                const response = await fetch('/api/ecommerce/track-url/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        product_url: this.productUrl,
+                        category_id: this.urlCategoryId || null,
+                        brand_id: this.urlBrandId || null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.statusMessage = 'เพิ่มสินค้าสำเร็จ! กำลัง refresh...';
+                    this.statusType = 'success';
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    this.statusMessage = 'เกิดข้อผิดพลาด: ' + data.error;
+                    this.statusType = 'error';
+                }
+            } catch (error) {
+                this.statusMessage = 'เกิดข้อผิดพลาด: ' + error.message;
+                this.statusType = 'error';
+            } finally {
+                this.isTracking = false;
+            }
+        },
+
+        async addCategory() {
+            if (!this.newCategoryName) return;
+            this.isAddingCategory = true;
+            this.statusMessage = '';
+
+            try {
+                const response = await fetch('/api/ecommerce/category-create/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ name: this.newCategoryName })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    this.statusMessage = `เพิ่มหมวดหมู่ '${this.newCategoryName}' สำเร็จ!`;
+                    this.statusType = 'success';
+                    this.newCategoryName = '';
+                    await this.loadCategories(); // Refresh categories
+                } else {
+                    this.statusMessage = 'เกิดข้อผิดพลาด: ' + data.error;
+                    this.statusType = 'error';
+                }
+            } catch (error) {
+                this.statusMessage = 'เกิดข้อผิดพลาด: ' + error.message;
+                this.statusType = 'error';
+            } finally {
+                this.isAddingCategory = false;
+            }
+        },
+
+        async addBrand() {
+            if (!this.newBrandName) return;
+            this.isAddingBrand = true;
+            this.statusMessage = '';
+
+            try {
+                const response = await fetch('/api/ecommerce/brand-create/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ name: this.newBrandName })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    this.statusMessage = `เพิ่มแบรนด์ '${this.newBrandName}' สำเร็จ!`;
+                    this.statusType = 'success';
+                    this.newBrandName = '';
+                    await this.loadBrands(); // Refresh brands
+                } else {
+                    this.statusMessage = 'เกิดข้อผิดพลาด: ' + data.error;
+                    this.statusType = 'error';
+                }
+            } catch (error) {
+                this.statusMessage = 'เกิดข้อผิดพลาด: ' + error.message;
+                this.statusType = 'error';
+            } finally {
+                this.isAddingBrand = false;
+            }
+        },
+
+        async updateAllPrices() {
+            this.isUpdating = true;
+            this.statusMessage = 'กำลังอัพเดทราคาสินค้าทั้งหมด...';
+            this.statusType = 'success';
+
+            try {
+                const response = await fetch('/api/ecommerce/update-prices/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.statusMessage = 'เริ่มอัพเดทราคาแล้ว! กรุณารอสักครู่...';
+                    this.checkUpdateStatus();
+                } else {
+                    this.statusMessage = 'เกิดข้อผิดพลาด: ' + data.message;
+                    this.statusType = 'error';
+                    this.isUpdating = false;
+                }
+            } catch (error) {
+                this.statusMessage = 'เกิดข้อผิดพลาด: ' + error.message;
+                this.statusType = 'error';
+                this.isUpdating = false;
+            }
+        },
+
+        async checkUpdateStatus() {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/ecommerce/update-status/');
+                    const data = await response.json();
+
+                    if (data.status === 'completed') {
+                        clearInterval(interval);
+                        this.statusMessage = 'อัพเดทราคาเสร็จสมบูรณ์! กำลัง refresh...';
+                        this.statusType = 'success';
+                        setTimeout(() => window.location.reload(), 2000);
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval);
+                        this.statusMessage = 'เกิดข้อผิดพลาด: ' + data.error;
+                        this.statusType = 'error';
+                        this.isUpdating = false;
+                    }
+                } catch (error) {
+                    clearInterval(interval);
+                    this.statusMessage = 'เกิดข้อผิดพลาด: ' + error.message;
+                    this.statusType = 'error';
+                    this.isUpdating = false;
+                }
+            }, 2000);
+        },
+
+        // Bulk Scraping Methods
+        async scrapeByCategory() {
+            if (!this.categoryPlatform || !this.categoryId) return;
+
+            this.isBulkScraping = true;
+            this.bulkScrapeStatus = 'กำลังเริ่ม scrape สินค้าตามหมวดหมู่...';
+            this.bulkScrapeType = 'info';
+
+            try {
+                const response = await fetch('/api/ecommerce/scrape-category/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        platform: this.categoryPlatform,
+                        category_id: this.categoryId,
+                        limit: this.categoryLimit
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.bulkTaskId = data.task_id;
+                    this.bulkScrapeStatus = data.message + ' กำลังประมวลผล...';
+                    this.bulkScrapeType = 'info';
+                    this.checkBulkScrapeStatus();
+                } else {
+                    this.bulkScrapeStatus = 'เกิดข้อผิดพลาด: ' + data.error;
+                    this.bulkScrapeType = 'error';
+                    this.isBulkScraping = false;
+                }
+            } catch (error) {
+                this.bulkScrapeStatus = 'เกิดข้อผิดพลาด: ' + error.message;
+                this.bulkScrapeType = 'error';
+                this.isBulkScraping = false;
+            }
+        },
+
+        async scrapeByBrand() {
+            if (!this.brandPlatform || !this.brandId) return;
+
+            this.isBulkScraping = true;
+            this.bulkScrapeStatus = 'กำลังเริ่ม scrape สินค้าตามแบรนด์...';
+            this.bulkScrapeType = 'info';
+
+            try {
+                const response = await fetch('/api/ecommerce/scrape-brand/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        platform: this.brandPlatform,
+                        brand_id: this.brandId,
+                        limit: this.brandLimit
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.bulkTaskId = data.task_id;
+                    this.bulkScrapeStatus = data.message + ' กำลังประมวลผล...';
+                    this.bulkScrapeType = 'info';
+                    this.checkBulkScrapeStatus();
+                } else {
+                    this.bulkScrapeStatus = 'เกิดข้อผิดพลาด: ' + data.error;
+                    this.bulkScrapeType = 'error';
+                    this.isBulkScraping = false;
+                }
+            } catch (error) {
+                this.bulkScrapeStatus = 'เกิดข้อผิดพลาด: ' + error.message;
+                this.bulkScrapeType = 'error';
+                this.isBulkScraping = false;
+            }
+        },
+
+        async scrapeBestsellers() {
+            if (!this.bestsellersPlatform) return;
+
+            this.isBulkScraping = true;
+            this.bulkScrapeStatus = 'กำลังเริ่ม scrape สินค้าขายดี...';
+            this.bulkScrapeType = 'info';
+
+            try {
+                const response = await fetch('/api/ecommerce/scrape-bestsellers/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        platform: this.bestsellersPlatform,
+                        limit: this.bestsellersLimit
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.bulkTaskId = data.task_id;
+                    this.bulkScrapeStatus = data.message + ' กำลังประมวลผล...';
+                    this.bulkScrapeType = 'info';
+                    this.checkBulkScrapeStatus();
+                } else {
+                    this.bulkScrapeStatus = 'เกิดข้อผิดพลาด: ' + data.error;
+                    this.bulkScrapeType = 'error';
+                    this.isBulkScraping = false;
+                }
+            } catch (error) {
+                this.bulkScrapeStatus = 'เกิดข้อผิดพลาด: ' + error.message;
+                this.bulkScrapeType = 'error';
+                this.isBulkScraping = false;
+            }
+        },
+
+        async checkBulkScrapeStatus() {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/ecommerce/bulk-scrape-status/?task_id=${this.bulkTaskId}`);
+                    const data = await response.json();
+
+                    if (data.status === 'completed') {
+                        clearInterval(interval);
+                        const result = data.result;
+                        this.bulkScrapeStatus = `Scrape เสร็จสมบูรณ์! ได้สินค้า ${result.products_count} รายการ กำลัง refresh...`;
+                        this.bulkScrapeType = 'success';
+                        setTimeout(() => window.location.reload(), 3000);
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval);
+                        this.bulkScrapeStatus = 'เกิดข้อผิดพลาด: ' + data.error;
+                        this.bulkScrapeType = 'error';
+                        this.isBulkScraping = false;
+                    } else if (data.status === 'running') {
+                        this.bulkScrapeStatus = 'กำลังดึงข้อมูลสินค้า... กรุณารอสักครู่';
+                        this.bulkScrapeType = 'info';
+                    }
+                } catch (error) {
+                    clearInterval(interval);
+                    this.bulkScrapeStatus = 'เกิดข้อผิดพลาด: ' + error.message;
+                    this.bulkScrapeType = 'error';
+                    this.isBulkScraping = false;
+                }
+            }, 3000);
+        }
+    }
+}
+</script>
+{% endblock %}

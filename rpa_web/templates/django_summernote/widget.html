@@ -1,0 +1,114 @@
+{% load static %}
+<textarea class="django-summernote-widget" name="{{ name }}" id="{{ id }}">{{ value|default:"" }}</textarea>
+
+<!-- Prism.js for Syntax Highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+
+<script>
+(function($) {
+    $(document).ready(function() {
+        // Custom Code Block Button
+        var CodeBlockButton = function(context) {
+            var ui = $.summernote.ui;
+
+            var button = ui.button({
+                contents: '<i class="fa fa-code"/> Code',
+                tooltip: 'Insert Code Block',
+                click: function() {
+                    // Show dialog to get code and language
+                    var code = prompt('Enter your code:');
+                    if (code) {
+                        var language = prompt('Enter language (python, javascript, bash, json, sql, yaml):', 'python');
+                        if (!language) language = 'python';
+
+                        // Create code block with Prism.js classes
+                        var codeBlock = '<pre><code class="language-' + language + '">' +
+                                      code.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+                                      '</code></pre><p><br></p>';
+
+                        context.invoke('editor.pasteHTML', codeBlock);
+                    }
+                }
+            });
+
+            return button.render();
+        };
+
+        // Initialize Summernote with custom button
+        $('#{{ id }}').summernote({
+            height: {{ config.summernote.height|default:480 }},
+            width: '{{ config.summernote.width|default:"100%" }}',
+            toolbar: [
+                ['style', ['style']],
+                ['font', ['bold', 'italic', 'underline', 'strikethrough', 'clear']],
+                ['fontname', ['fontname']],
+                ['fontsize', ['fontsize']],
+                ['color', ['color']],
+                ['para', ['ul', 'ol', 'paragraph']],
+                ['height', ['height']],
+                ['table', ['table']],
+                ['insert', ['link', 'picture', 'video']],
+                ['view', ['fullscreen', 'codeview', 'help']],
+                ['custom', ['codeBlock']]
+            ],
+            buttons: {
+                codeBlock: CodeBlockButton
+            },
+            codeviewFilter: false,
+            codeviewIframeFilter: true,
+            callbacks: {
+                onInit: function() {
+                    // Apply Prism highlighting on init
+                    setTimeout(function() {
+                        if (typeof Prism !== 'undefined') {
+                            Prism.highlightAll();
+                        }
+                    }, 100);
+                },
+                onChange: function(contents) {
+                    // Apply Prism highlighting when content changes
+                    setTimeout(function() {
+                        if (typeof Prism !== 'undefined') {
+                            Prism.highlightAll();
+                        }
+                    }, 100);
+                }
+            }
+        });
+
+        // Add custom CSS for code blocks
+        $('<style>')
+            .text(`
+                .note-editor pre {
+                    background-color: #2d2d2d;
+                    border-radius: 5px;
+                    padding: 15px;
+                    margin: 10px 0;
+                    overflow-x: auto;
+                }
+                .note-editor code {
+                    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                    font-size: 14px;
+                    line-height: 1.5;
+                }
+                .note-editor pre code {
+                    background: transparent;
+                    padding: 0;
+                    border: none;
+                    color: #f8f8f2;
+                }
+                .note-editable pre[contenteditable="false"] {
+                    background-color: #2d2d2d !important;
+                }
+            `)
+            .appendTo('head');
+    });
+})(django.jQuery);
+</script>
