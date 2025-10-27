@@ -40,3 +40,7 @@ google-generativeai>=0.3.0
 markdown2
 django-summernote
 bleach==4.1.0
+
+# Documentation & Markdown
+Markdown>=3.5.1
+Pygments>=2.17.2
